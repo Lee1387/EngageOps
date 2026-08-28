@@ -42,7 +42,7 @@ jobs:
 
       - name: Verify formatting
         run: >
-          dotnet format whitespace EngageOps.slnx
+          dotnet format EngageOps.slnx
           --verify-no-changes
           --no-restore
 
@@ -66,6 +66,9 @@ jobs:
 
       - name: Validate Docker Compose
         run: docker compose config --quiet
+
+      - name: Build Docker images
+        run: docker compose build backend frontend
 
   frontend:
     name: Frontend

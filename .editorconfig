@@ -7,8 +7,11 @@ insert_final_newline = true
 trim_trailing_whitespace = true
 indent_style = space
 
-[*.{cs,csproj,props,targets}]
+[*.cs]
 indent_size = 4
+
+[*.{csproj,props,targets,slnx}]
+indent_size = 2
 
 [*.{ts,tsx,js,jsx,json,jsonc,css,scss,html,yml,yaml}]
 indent_size = 2
