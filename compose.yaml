@@ -1,0 +1,90 @@
+services:
+  postgres:
+    image: postgres:18.6-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: src/backend/EngageOps.Api/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Database: >-
+        Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync
+          path: ./src/backend/EngageOps.Api
+          target: /workspace/src/backend/EngageOps.Api
+          initial_sync: true
+          ignore:
+            - bin/
+            - obj/
+            - EngageOps.Api.csproj
+            - Dockerfile
+
+        - action: rebuild
+          path: ./src/backend/EngageOps.Api/EngageOps.Api.csproj
+
+        - action: rebuild
+          path: ./src/backend/EngageOps.Api/Dockerfile
+
+        - action: rebuild
+          path: ./Directory.Build.props
+
+        - action: rebuild
+          path: ./Directory.Packages.props
+
+        - action: rebuild
+          path: ./global.json
+
+        - action: rebuild
+          path: ./EngageOps.slnx
+
+  frontend:
+    build:
+      context: .
+      dockerfile: src/frontend/Dockerfile
+    ports:
+      - "127.0.0.1:5173:5173"
+    develop:
+      watch:
+        - action: sync
+          path: ./src/frontend
+          target: /workspace/src/frontend
+          initial_sync: true
+          ignore:
+            - node_modules/
+            - dist/
+            - package.json
+            - pnpm-lock.yaml
+            - Dockerfile
+
+        - action: rebuild
+          path: ./src/frontend/package.json
+
+        - action: rebuild
+          path: ./src/frontend/pnpm-lock.yaml
+
+        - action: rebuild
+          path: ./src/frontend/Dockerfile
+
+volumes:
+  postgres-data:

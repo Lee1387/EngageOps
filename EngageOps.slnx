@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/backend/">
+    <Project Path="src/backend/EngageOps.Api/EngageOps.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/backend/">
+    <Project Path="tests/backend/EngageOps.Api.Tests/EngageOps.Api.Tests.csproj" />
+  </Folder>
+</Solution>
