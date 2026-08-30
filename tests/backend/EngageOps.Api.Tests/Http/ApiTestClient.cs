@@ -1,14 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
 using EngageOps.Api.Identity;
+using EngageOps.Api.Tests.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace EngageOps.Api.Tests.Http;
 
 internal sealed class ApiTestClient : IDisposable
 {
-    public const string ValidPassword = "ValidPassword1!";
-
     private readonly HttpClient client;
 
     private ApiTestClient(HttpClient client)
@@ -38,7 +37,7 @@ internal sealed class ApiTestClient : IDisposable
         var antiforgeryToken = await GetAntiforgeryTokenAsync(cancellationToken);
         using var response = await PostJsonWithAntiforgeryAsync(
             "/api/auth/sign-in",
-            new { Email = email, Password = ValidPassword },
+            new { Email = email, Password = IdentityTestData.ValidPassword },
             antiforgeryToken,
             cancellationToken);
 

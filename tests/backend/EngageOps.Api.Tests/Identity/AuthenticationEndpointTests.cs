@@ -4,18 +4,20 @@ using System.Text;
 using System.Text.Json;
 using EngageOps.Api.Identity;
 using EngageOps.Api.Persistence;
+using EngageOps.Api.Tests.Http;
 using EngageOps.Api.Tests.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using static EngageOps.Api.Tests.Http.ApiResponseAssertions;
 
 namespace EngageOps.Api.Tests.Identity;
 
 public class AuthenticationEndpointTests
 {
     private const string Email = "owner@northstar.example";
-    private const string Password = "ValidPassword1!";
+    private const string Password = IdentityTestData.ValidPassword;
 
     [Fact]
     public async Task SessionLifecycleUsesSecureCookieAndRequiresAntiforgery()
@@ -286,13 +288,7 @@ public class AuthenticationEndpointTests
         var context = scope.ServiceProvider.GetRequiredService<EngageOpsDbContext>();
         await context.Database.MigrateAsync(cancellationToken);
 
-        var user = new ApplicationUser { UserName = Email, Email = Email };
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-        var result = await userManager.CreateAsync(user, Password);
-
-        Assert.True(result.Succeeded, string.Join(", ", result.Errors.Select(error => error.Description)));
-
-        return user;
+        return await IdentityTestData.CreateUserAsync(scope.ServiceProvider, Email, Password);
     }
 
     private static async Task<string> GetAntiforgeryTokenAsync(
@@ -336,29 +332,7 @@ public class AuthenticationEndpointTests
         return await client.SendAsync(request, cancellationToken);
     }
 
-    private static async Task<ProblemResponse> AssertProblemAsync(
-        HttpResponseMessage response,
-        HttpStatusCode expectedStatus,
-        string expectedTitle,
-        CancellationToken cancellationToken)
-    {
-        Assert.Equal(expectedStatus, response.StatusCode);
-        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
-
-        var problem = await response.Content.ReadFromJsonAsync<ProblemResponse>(cancellationToken);
-        Assert.NotNull(problem);
-        Assert.Equal((int)expectedStatus, problem.Status);
-        Assert.Equal(expectedTitle, problem.Title);
-
-        return problem;
-    }
-
     private sealed record AntiforgeryTokenResponse(string Token);
 
     private sealed record SessionResponse(Guid UserId, string? Email);
-
-    private sealed record ProblemResponse(
-        int Status,
-        string Title,
-        Dictionary<string, string[]>? Errors = null);
 }

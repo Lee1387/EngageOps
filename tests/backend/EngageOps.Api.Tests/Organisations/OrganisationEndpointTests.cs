@@ -1,13 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
-using EngageOps.Api.Identity;
 using EngageOps.Api.Organisations;
 using EngageOps.Api.Persistence;
 using EngageOps.Api.Tests.Http;
 using EngageOps.Api.Tests.Persistence;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using static EngageOps.Api.Tests.Http.ApiResponseAssertions;
+using static EngageOps.Api.Tests.Identity.IdentityTestData;
 
 namespace EngageOps.Api.Tests.Organisations;
 
@@ -23,14 +23,11 @@ public class OrganisationEndpointTests
             "/api/organisations",
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
-
-        var problem = await response.Content.ReadFromJsonAsync<ProblemResponse>(
+        await AssertProblemAsync(
+            response,
+            HttpStatusCode.Unauthorized,
+            "Authentication is required.",
             TestContext.Current.CancellationToken);
-        Assert.NotNull(problem);
-        Assert.Equal((int)HttpStatusCode.Unauthorized, problem.Status);
-        Assert.Equal("Authentication is required.", problem.Title);
     }
 
     [Fact]
@@ -112,20 +109,5 @@ public class OrganisationEndpointTests
         Assert.Empty(organisations);
     }
 
-    private static async Task<ApplicationUser> CreateUserAsync(
-        IServiceProvider services,
-        string email)
-    {
-        var user = new ApplicationUser { UserName = email, Email = email };
-        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
-        var result = await userManager.CreateAsync(user, ApiTestClient.ValidPassword);
-
-        Assert.True(result.Succeeded, string.Join(", ", result.Errors.Select(error => error.Description)));
-
-        return user;
-    }
-
     private sealed record OrganisationSummaryResponse(Guid Id, string Name);
-
-    private sealed record ProblemResponse(int Status, string Title);
 }

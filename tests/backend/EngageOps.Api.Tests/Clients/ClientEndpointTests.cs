@@ -1,14 +1,14 @@
 using System.Net;
 using System.Net.Http.Json;
-using EngageOps.Api.Identity;
 using EngageOps.Api.Organisations;
 using EngageOps.Api.Persistence;
 using EngageOps.Api.Tests.Http;
 using EngageOps.Api.Tests.Persistence;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ClientEntity = EngageOps.Api.Clients.Client;
+using static EngageOps.Api.Tests.Http.ApiResponseAssertions;
+using static EngageOps.Api.Tests.Identity.IdentityTestData;
 
 namespace EngageOps.Api.Tests.Clients;
 
@@ -444,36 +444,6 @@ public class ClientEndpointTests
         }
     }
 
-    private static async Task<ApplicationUser> CreateUserAsync(
-        IServiceProvider services,
-        string email)
-    {
-        var user = new ApplicationUser { UserName = email, Email = email };
-        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
-        var result = await userManager.CreateAsync(user, ApiTestClient.ValidPassword);
-
-        Assert.True(result.Succeeded, string.Join(", ", result.Errors.Select(error => error.Description)));
-
-        return user;
-    }
-
-    private static async Task<ProblemResponse> AssertProblemAsync(
-        HttpResponseMessage response,
-        HttpStatusCode expectedStatus,
-        string expectedTitle,
-        CancellationToken cancellationToken)
-    {
-        Assert.Equal(expectedStatus, response.StatusCode);
-        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
-
-        var problem = await response.Content.ReadFromJsonAsync<ProblemResponse>(cancellationToken);
-        Assert.NotNull(problem);
-        Assert.Equal((int)expectedStatus, problem.Status);
-        Assert.Equal(expectedTitle, problem.Title);
-
-        return problem;
-    }
-
     private sealed record ClientResponse(Guid Id, Guid OrganisationId, string Name);
 
     private sealed record ClientPageResponse(
@@ -481,9 +451,4 @@ public class ClientEndpointTests
         int Page,
         int PageSize,
         int TotalCount);
-
-    private sealed record ProblemResponse(
-        int Status,
-        string Title,
-        Dictionary<string, string[]>? Errors = null);
 }
