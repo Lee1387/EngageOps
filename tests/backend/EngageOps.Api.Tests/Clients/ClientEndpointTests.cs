@@ -214,6 +214,243 @@ public class ClientEndpointTests
         Assert.False(await verificationContext.Clients.AnyAsync(cancellationToken));
     }
 
+    [Fact]
+    public async Task GetClientsRequiresAuthentication()
+    {
+        using var factory = new EngageOpsApiFactory();
+        using var client = CreateSecureClient(factory);
+
+        using var response = await client.GetAsync(
+            $"/api/organisations/{Guid.CreateVersion7()}/clients",
+            TestContext.Current.CancellationToken);
+
+        await AssertProblemAsync(
+            response,
+            HttpStatusCode.Unauthorized,
+            "Authentication is required.",
+            TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task GetClientsReturnsOnlyRequestedOrganisationsClientsInNameOrder()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var postgreSql = PostgreSqlTestDatabase.CreateContainer();
+        await postgreSql.StartAsync(cancellationToken);
+
+        using var factory = new EngageOpsApiFactory(postgreSql.GetConnectionString());
+        var organisation = Organisation.Create("Northstar Workforce");
+        var otherOrganisation = Organisation.Create("Other Tenant");
+        var alpha = ClientEntity.Create(organisation.Id, "Alpha Distribution");
+        var zeta = ClientEntity.Create(organisation.Id, "Zeta Logistics");
+        var otherOrganisationsClient = ClientEntity.Create(
+            otherOrganisation.Id,
+            "Other Client");
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var database = scope.ServiceProvider.GetRequiredService<EngageOpsDbContext>();
+            await database.Database.MigrateAsync(cancellationToken);
+            var user = await CreateUserAsync(scope.ServiceProvider, "owner@northstar.example");
+
+            database.AddRange(
+                organisation,
+                otherOrganisation,
+                alpha,
+                zeta,
+                otherOrganisationsClient,
+                OrganisationMembership.Create(organisation.Id, user.Id));
+            await database.SaveChangesAsync(cancellationToken);
+        }
+
+        using var client = CreateSecureClient(factory);
+        await SignInAsync(client, "owner@northstar.example", cancellationToken);
+
+        using var response = await client.GetAsync(
+            $"/api/organisations/{organisation.Id}/clients",
+            cancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(true, response.Headers.CacheControl?.NoStore);
+        var page = await response.Content
+            .ReadFromJsonAsync<ClientPageResponse>(cancellationToken);
+
+        Assert.NotNull(page);
+        Assert.Equal(1, page.Page);
+        Assert.Equal(50, page.PageSize);
+        Assert.Equal(2, page.TotalCount);
+        Assert.Collection(
+            page.Items,
+            client => Assert.Equal(
+                (alpha.Id, alpha.OrganisationId, alpha.Name),
+                (client.Id, client.OrganisationId, client.Name)),
+            client => Assert.Equal(
+                (zeta.Id, zeta.OrganisationId, zeta.Name),
+                (client.Id, client.OrganisationId, client.Name)));
+    }
+
+    [Fact]
+    public async Task GetClientsReturnsEmptyCollectionAndSameNotFoundOutsideMembership()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var postgreSql = PostgreSqlTestDatabase.CreateContainer();
+        await postgreSql.StartAsync(cancellationToken);
+
+        using var factory = new EngageOpsApiFactory(postgreSql.GetConnectionString());
+        var emptyOrganisation = Organisation.Create("Northstar Workforce");
+        var otherUsersOrganisation = Organisation.Create("Other Tenant");
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var database = scope.ServiceProvider.GetRequiredService<EngageOpsDbContext>();
+            await database.Database.MigrateAsync(cancellationToken);
+            var currentUser = await CreateUserAsync(
+                scope.ServiceProvider,
+                "owner@northstar.example");
+            var otherUser = await CreateUserAsync(
+                scope.ServiceProvider,
+                "owner@other.example");
+
+            database.AddRange(
+                emptyOrganisation,
+                otherUsersOrganisation,
+                OrganisationMembership.Create(emptyOrganisation.Id, currentUser.Id),
+                OrganisationMembership.Create(otherUsersOrganisation.Id, otherUser.Id));
+            await database.SaveChangesAsync(cancellationToken);
+        }
+
+        using var client = CreateSecureClient(factory);
+        await SignInAsync(client, "owner@northstar.example", cancellationToken);
+
+        using (var emptyResponse = await client.GetAsync(
+            $"/api/organisations/{emptyOrganisation.Id}/clients",
+            cancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, emptyResponse.StatusCode);
+            var page = await emptyResponse.Content
+                .ReadFromJsonAsync<ClientPageResponse>(cancellationToken);
+
+            Assert.NotNull(page);
+            Assert.Empty(page.Items);
+            Assert.Equal(0, page.TotalCount);
+        }
+
+        foreach (var organisationId in new[]
+        {
+            otherUsersOrganisation.Id,
+            Guid.CreateVersion7(),
+            Guid.Empty,
+        })
+        {
+            using var response = await client.GetAsync(
+                $"/api/organisations/{organisationId}/clients",
+                cancellationToken);
+
+            await AssertProblemAsync(
+                response,
+                HttpStatusCode.NotFound,
+                "Organisation was not found.",
+                cancellationToken);
+        }
+    }
+
+    [Fact]
+    public async Task GetClientsPaginatesAndValidatesPaginationBoundaries()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var postgreSql = PostgreSqlTestDatabase.CreateContainer();
+        await postgreSql.StartAsync(cancellationToken);
+
+        using var factory = new EngageOpsApiFactory(postgreSql.GetConnectionString());
+        var organisation = Organisation.Create("Northstar Workforce");
+        var alpha = ClientEntity.Create(organisation.Id, "Alpha Distribution");
+        var beta = ClientEntity.Create(organisation.Id, "Beta Logistics");
+        var gamma = ClientEntity.Create(organisation.Id, "Gamma Consulting");
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var database = scope.ServiceProvider.GetRequiredService<EngageOpsDbContext>();
+            await database.Database.MigrateAsync(cancellationToken);
+            var user = await CreateUserAsync(scope.ServiceProvider, "owner@northstar.example");
+
+            database.AddRange(
+                organisation,
+                alpha,
+                beta,
+                gamma,
+                OrganisationMembership.Create(organisation.Id, user.Id));
+            await database.SaveChangesAsync(cancellationToken);
+        }
+
+        using var client = CreateSecureClient(factory);
+        await SignInAsync(client, "owner@northstar.example", cancellationToken);
+        var path = $"/api/organisations/{organisation.Id}/clients";
+
+        using (var response = await client.GetAsync(
+            $"{path}?page=2&pageSize=2",
+            cancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var page = await response.Content
+                .ReadFromJsonAsync<ClientPageResponse>(cancellationToken);
+
+            Assert.NotNull(page);
+            Assert.Equal(2, page.Page);
+            Assert.Equal(2, page.PageSize);
+            Assert.Equal(3, page.TotalCount);
+            var item = Assert.Single(page.Items);
+            Assert.Equal(
+                (gamma.Id, gamma.OrganisationId, gamma.Name),
+                (item.Id, item.OrganisationId, item.Name));
+        }
+
+        using (var maximumPageSize = await client.GetAsync(
+            $"{path}?pageSize=100",
+            cancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, maximumPageSize.StatusCode);
+            var page = await maximumPageSize.Content
+                .ReadFromJsonAsync<ClientPageResponse>(cancellationToken);
+
+            Assert.NotNull(page);
+            Assert.Equal(100, page.PageSize);
+            Assert.Equal(3, page.Items.Count);
+        }
+
+        using (var distantPage = await client.GetAsync(
+            $"{path}?page={int.MaxValue}&pageSize=1",
+            cancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, distantPage.StatusCode);
+            var page = await distantPage.Content
+                .ReadFromJsonAsync<ClientPageResponse>(cancellationToken);
+
+            Assert.NotNull(page);
+            Assert.Equal(int.MaxValue, page.Page);
+            Assert.Empty(page.Items);
+            Assert.Equal(3, page.TotalCount);
+        }
+
+        foreach (var (query, errorKey) in new[]
+        {
+            ("?page=0", "page"),
+            ("?pageSize=0", "pageSize"),
+            ("?pageSize=101", "pageSize"),
+            ($"?page={int.MaxValue}&pageSize=100", "page"),
+        })
+        {
+            using var response = await client.GetAsync($"{path}{query}", cancellationToken);
+            var problem = await AssertProblemAsync(
+                response,
+                HttpStatusCode.BadRequest,
+                "One or more validation errors occurred.",
+                cancellationToken);
+
+            Assert.NotNull(problem.Errors);
+            Assert.Contains(errorKey, problem.Errors);
+        }
+    }
+
     private static HttpClient CreateSecureClient(EngageOpsApiFactory factory) =>
         factory.CreateClient(new WebApplicationFactoryClientOptions
         {
@@ -300,6 +537,12 @@ public class ClientEndpointTests
     private sealed record AntiforgeryTokenResponse(string Token);
 
     private sealed record ClientResponse(Guid Id, Guid OrganisationId, string Name);
+
+    private sealed record ClientPageResponse(
+        IReadOnlyList<ClientResponse> Items,
+        int Page,
+        int PageSize,
+        int TotalCount);
 
     private sealed record ProblemResponse(
         int Status,
