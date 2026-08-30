@@ -1,3 +1,4 @@
+using EngageOps.Api.Assignments;
 using EngageOps.Api.Clients;
 using EngageOps.Api.Identity;
 using EngageOps.Api.Organisations;
@@ -70,6 +71,7 @@ builder.Services.ConfigureApplicationCookie(options =>
             .ExecuteAsync(context.HttpContext);
     };
 });
+builder.Services.AddScoped<AssignmentCreator>();
 builder.Services.AddScoped<ClientCreator>();
 builder.Services.AddScoped<OrganisationMembershipChecker>();
 builder.Services.AddScoped<OrganisationProvisioner>();
@@ -84,6 +86,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapHealthChecks("/health");
+app.MapAssignmentEndpoints();
 app.MapAuthenticationEndpoints();
 app.MapClientEndpoints();
 app.MapOrganisationEndpoints();

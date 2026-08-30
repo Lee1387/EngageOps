@@ -58,10 +58,11 @@ public sealed class Assignment
                 nameof(workerId));
         }
 
-        if (endDate is not null && endDate < startDate)
+        var dateValidationError = GetDateValidationError(startDate, endDate);
+        if (dateValidationError is not null)
         {
             throw new ArgumentException(
-                "Assignment end date cannot be before its start date.",
+                dateValidationError,
                 nameof(endDate));
         }
 
@@ -73,4 +74,9 @@ public sealed class Assignment
             startDate,
             endDate);
     }
+
+    internal static string? GetDateValidationError(DateOnly startDate, DateOnly? endDate) =>
+        endDate is not null && endDate < startDate
+            ? "Assignment end date cannot be before its start date."
+            : null;
 }
