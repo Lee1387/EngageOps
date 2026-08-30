@@ -1,3 +1,4 @@
+using EngageOps.Api.Identity;
 using EngageOps.Api.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,6 +9,8 @@ var databaseConnectionString = builder.Configuration.GetConnectionString("Databa
 
 builder.Services.AddDbContext<EngageOpsDbContext>(options =>
     options.UseNpgsql(databaseConnectionString));
+builder.Services.AddIdentityCore<ApplicationUser>()
+    .AddEntityFrameworkStores<EngageOpsDbContext>();
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();

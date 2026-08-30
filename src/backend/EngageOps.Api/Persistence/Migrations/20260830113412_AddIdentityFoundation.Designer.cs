@@ -3,6 +3,7 @@ using System;
 using EngageOps.Api.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EngageOps.Api.Persistence.Migrations
 {
     [DbContext(typeof(EngageOpsDbContext))]
-    partial class EngageOpsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260830113412_AddIdentityFoundation")]
+    partial class AddIdentityFoundation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -103,23 +106,6 @@ namespace EngageOps.Api.Persistence.Migrations
                     b.ToTable("organisations", (string)null);
                 });
 
-            modelBuilder.Entity("EngageOps.Api.Organisations.OrganisationMembership", b =>
-                {
-                    b.Property<Guid>("OrganisationId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("organisation_id");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("OrganisationId", "UserId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("organisation_memberships", (string)null);
-                });
-
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
                 {
                     b.Property<int>("Id")
@@ -182,21 +168,6 @@ namespace EngageOps.Api.Persistence.Migrations
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("AspNetUserTokens", (string)null);
-                });
-
-            modelBuilder.Entity("EngageOps.Api.Organisations.OrganisationMembership", b =>
-                {
-                    b.HasOne("EngageOps.Api.Organisations.Organisation", null)
-                        .WithMany()
-                        .HasForeignKey("OrganisationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("EngageOps.Api.Identity.ApplicationUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>

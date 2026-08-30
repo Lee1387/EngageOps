@@ -1,7 +1,6 @@
 using EngageOps.Api.Organisations;
 using EngageOps.Api.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Testcontainers.PostgreSql;
 
 namespace EngageOps.Api.Tests.Persistence;
 
@@ -11,12 +10,10 @@ public class OrganisationPersistenceTests
     public async Task MigrationPersistsAndReloadsOrganisation()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
-        await using var postgreSql = new PostgreSqlBuilder("postgres:18.6-alpine").Build();
+        await using var postgreSql = PostgreSqlTestDatabase.CreateContainer();
         await postgreSql.StartAsync(cancellationToken);
 
-        var options = new DbContextOptionsBuilder<EngageOpsDbContext>()
-            .UseNpgsql(postgreSql.GetConnectionString())
-            .Options;
+        var options = PostgreSqlTestDatabase.CreateContextOptions(postgreSql);
         var organisation = Organisation.Create("Northstar Workforce");
 
         await using (var context = new EngageOpsDbContext(options))
