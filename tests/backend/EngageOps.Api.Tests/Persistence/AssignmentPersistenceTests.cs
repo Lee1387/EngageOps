@@ -4,6 +4,8 @@ using EngageOps.Api.Organisations;
 using EngageOps.Api.Persistence;
 using EngageOps.Api.Workers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 
 namespace EngageOps.Api.Tests.Persistence;
@@ -11,7 +13,7 @@ namespace EngageOps.Api.Tests.Persistence;
 public class AssignmentPersistenceTests
 {
     [Fact]
-    public async Task MigrationPersistsAssignment()
+    public async Task MigrationPersistsAssignmentAndStatusTransition()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var postgreSql = PostgreSqlTestDatabase.CreateContainer();
@@ -36,6 +38,16 @@ public class AssignmentPersistenceTests
             await context.SaveChangesAsync(cancellationToken);
         }
 
+        await using (var updateContext = new EngageOpsDbContext(options))
+        {
+            var trackedAssignment = await updateContext.Assignments
+                .SingleAsync(candidate => candidate.Id == assignment.Id, cancellationToken);
+
+            Assert.Equal(AssignmentStatus.Confirmed, trackedAssignment.Status);
+            Assert.True(trackedAssignment.TryCancel());
+            await updateContext.SaveChangesAsync(cancellationToken);
+        }
+
         await using var verificationContext = new EngageOpsDbContext(options);
         var persistedAssignment = await verificationContext.Assignments
             .AsNoTracking()
@@ -47,6 +59,55 @@ public class AssignmentPersistenceTests
         Assert.Equal(worker.Id, persistedAssignment.WorkerId);
         Assert.Equal(assignment.StartDate, persistedAssignment.StartDate);
         Assert.Equal(assignment.EndDate, persistedAssignment.EndDate);
+        Assert.Equal(AssignmentStatus.Cancelled, persistedAssignment.Status);
+    }
+
+    [Fact]
+    public async Task MigrationBackfillsExistingAssignmentsAsConfirmed()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var postgreSql = PostgreSqlTestDatabase.CreateContainer();
+        await postgreSql.StartAsync(cancellationToken);
+
+        var options = PostgreSqlTestDatabase.CreateContextOptions(postgreSql);
+        var organisation = Organisation.Create("Northstar Workforce");
+        var client = Client.Create(organisation.Id, "Northstar Logistics");
+        var worker = Worker.Create(organisation.Id, "Alex Morgan");
+        var assignmentId = Guid.CreateVersion7();
+
+        await using (var context = new EngageOpsDbContext(options))
+        {
+            var migrator = context.GetService<IMigrator>();
+            await migrator.MigrateAsync(
+                "20260830200759_AddAssignmentListIndex",
+                cancellationToken);
+
+            context.AddRange(organisation, client, worker);
+            await context.SaveChangesAsync(cancellationToken);
+            await context.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO assignments (
+                    id,
+                    organisation_id,
+                    client_id,
+                    worker_id,
+                    start_date)
+                VALUES (
+                    {assignmentId},
+                    {organisation.Id},
+                    {client.Id},
+                    {worker.Id},
+                    {new DateOnly(2026, 9, 1)})
+                """, cancellationToken);
+
+            await context.Database.MigrateAsync(cancellationToken);
+        }
+
+        await using var verificationContext = new EngageOpsDbContext(options);
+        var assignment = await verificationContext.Assignments
+            .AsNoTracking()
+            .SingleAsync(candidate => candidate.Id == assignmentId, cancellationToken);
+
+        Assert.Equal(AssignmentStatus.Confirmed, assignment.Status);
     }
 
     [Fact]
@@ -133,17 +194,64 @@ public class AssignmentPersistenceTests
 
         var exception = await Assert.ThrowsAsync<PostgresException>(() =>
             context.Database.ExecuteSqlInterpolatedAsync($"""
-                INSERT INTO assignments (id, organisation_id, client_id, worker_id, start_date, end_date)
+                INSERT INTO assignments (
+                    id,
+                    organisation_id,
+                    client_id,
+                    worker_id,
+                    start_date,
+                    end_date,
+                    status)
                 VALUES (
                     {Guid.CreateVersion7()},
                     {organisation.Id},
                     {client.Id},
                     {worker.Id},
                     {new DateOnly(2026, 9, 1)},
-                    {new DateOnly(2026, 8, 31)})
+                    {new DateOnly(2026, 8, 31)},
+                    {"Confirmed"})
                 """, cancellationToken));
 
         Assert.Equal(PostgresErrorCodes.CheckViolation, exception.SqlState);
         Assert.Equal("CK_assignments_date_range", exception.ConstraintName);
+    }
+
+    [Fact]
+    public async Task DatabaseRejectsUnknownStatus()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var postgreSql = PostgreSqlTestDatabase.CreateContainer();
+        await postgreSql.StartAsync(cancellationToken);
+
+        var options = PostgreSqlTestDatabase.CreateContextOptions(postgreSql);
+        var organisation = Organisation.Create("Northstar Workforce");
+        var client = Client.Create(organisation.Id, "Northstar Logistics");
+        var worker = Worker.Create(organisation.Id, "Alex Morgan");
+
+        await using var context = new EngageOpsDbContext(options);
+        await context.Database.MigrateAsync(cancellationToken);
+        context.AddRange(organisation, client, worker);
+        await context.SaveChangesAsync(cancellationToken);
+
+        var exception = await Assert.ThrowsAsync<PostgresException>(() =>
+            context.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO assignments (
+                    id,
+                    organisation_id,
+                    client_id,
+                    worker_id,
+                    start_date,
+                    status)
+                VALUES (
+                    {Guid.CreateVersion7()},
+                    {organisation.Id},
+                    {client.Id},
+                    {worker.Id},
+                    {new DateOnly(2026, 9, 1)},
+                    {"Unknown"})
+                """, cancellationToken));
+
+        Assert.Equal(PostgresErrorCodes.CheckViolation, exception.SqlState);
+        Assert.Equal("CK_assignments_status", exception.ConstraintName);
     }
 }

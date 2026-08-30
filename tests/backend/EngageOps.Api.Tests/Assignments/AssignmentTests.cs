@@ -26,6 +26,22 @@ public class AssignmentTests
         Assert.Equal(workerId, assignment.WorkerId);
         Assert.Equal(startDate, assignment.StartDate);
         Assert.Equal(endDate, assignment.EndDate);
+        Assert.Equal(AssignmentStatus.Confirmed, assignment.Status);
+    }
+
+    [Fact]
+    public void TryCancelTransitionsConfirmedAssignmentAndRejectsRepeatedCancellation()
+    {
+        var assignment = Assignment.Create(
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            new DateOnly(2026, 9, 1));
+
+        Assert.True(assignment.TryCancel());
+        Assert.Equal(AssignmentStatus.Cancelled, assignment.Status);
+        Assert.False(assignment.TryCancel());
+        Assert.Equal(AssignmentStatus.Cancelled, assignment.Status);
     }
 
     [Fact]

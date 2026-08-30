@@ -8,7 +8,8 @@ public sealed class Assignment
         Guid clientId,
         Guid workerId,
         DateOnly startDate,
-        DateOnly? endDate)
+        DateOnly? endDate,
+        AssignmentStatus status)
     {
         Id = id;
         OrganisationId = organisationId;
@@ -16,6 +17,7 @@ public sealed class Assignment
         WorkerId = workerId;
         StartDate = startDate;
         EndDate = endDate;
+        Status = status;
     }
 
     public Guid Id { get; }
@@ -29,6 +31,8 @@ public sealed class Assignment
     public DateOnly StartDate { get; }
 
     public DateOnly? EndDate { get; }
+
+    public AssignmentStatus Status { get; private set; }
 
     public static Assignment Create(
         Guid organisationId,
@@ -72,7 +76,19 @@ public sealed class Assignment
             clientId,
             workerId,
             startDate,
-            endDate);
+            endDate,
+            AssignmentStatus.Confirmed);
+    }
+
+    public bool TryCancel()
+    {
+        if (Status != AssignmentStatus.Confirmed)
+        {
+            return false;
+        }
+
+        Status = AssignmentStatus.Cancelled;
+        return true;
     }
 
     internal static string? GetDateValidationError(DateOnly startDate, DateOnly? endDate) =>

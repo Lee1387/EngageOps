@@ -60,6 +60,12 @@ public class AssignmentMappingTests
         Assert.Equal("date", endDate.GetColumnType());
         Assert.True(endDate.IsNullable);
 
+        var status = entity.FindProperty(nameof(Assignment.Status))!;
+        Assert.Equal("status", status.GetColumnName(table));
+        Assert.Equal("character varying(20)", status.GetColumnType());
+        Assert.False(status.IsNullable);
+        Assert.Equal(typeof(string), status.GetTypeMapping().Converter!.ProviderClrType);
+
         var organisationForeignKey = entity.GetForeignKeys()
             .Single(foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(Organisation));
         Assert.Equal(new[] { organisationId }, organisationForeignKey.Properties);
@@ -93,8 +99,13 @@ public class AssignmentMappingTests
             index => index.Properties.SequenceEqual([organisationId, startDate, id]));
         Assert.Equal([false, true, false], listIndex.IsDescending);
 
-        var dateConstraint = Assert.Single(entity.GetCheckConstraints());
+        var dateConstraint = entity.GetCheckConstraints()
+            .Single(constraint => constraint.Name == "CK_assignments_date_range");
         Assert.Equal("CK_assignments_date_range", dateConstraint.Name);
         Assert.Equal("end_date IS NULL OR end_date >= start_date", dateConstraint.Sql);
+
+        var statusConstraint = entity.GetCheckConstraints()
+            .Single(constraint => constraint.Name == "CK_assignments_status");
+        Assert.Equal("status IN ('Confirmed', 'Cancelled')", statusConstraint.Sql);
     }
 }

@@ -12,9 +12,15 @@ internal sealed class AssignmentConfiguration : IEntityTypeConfiguration<Assignm
     {
         builder.ToTable(
             "assignments",
-            table => table.HasCheckConstraint(
-                "CK_assignments_date_range",
-                "end_date IS NULL OR end_date >= start_date"));
+            table =>
+            {
+                table.HasCheckConstraint(
+                    "CK_assignments_date_range",
+                    "end_date IS NULL OR end_date >= start_date");
+                table.HasCheckConstraint(
+                    "CK_assignments_status",
+                    "status IN ('Confirmed', 'Cancelled')");
+            });
 
         builder.HasKey(assignment => assignment.Id);
 
@@ -39,6 +45,11 @@ internal sealed class AssignmentConfiguration : IEntityTypeConfiguration<Assignm
 
         builder.Property(assignment => assignment.EndDate)
             .HasColumnName("end_date");
+
+        builder.Property(assignment => assignment.Status)
+            .HasColumnName("status")
+            .HasConversion<string>()
+            .HasMaxLength(20);
 
         // Assignments are operational records, so deleting any related record must be an explicit decision.
         builder.HasOne<Organisation>()
