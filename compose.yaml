@@ -25,6 +25,8 @@ services:
         Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
     ports:
       - "127.0.0.1:8080:8080"
+    volumes:
+      - data-protection-keys:/root/.aspnet/DataProtection-Keys
     depends_on:
       postgres:
         condition: service_healthy
@@ -87,4 +89,5 @@ services:
           path: ./src/frontend/Dockerfile
 
 volumes:
+  data-protection-keys:
   postgres-data:
