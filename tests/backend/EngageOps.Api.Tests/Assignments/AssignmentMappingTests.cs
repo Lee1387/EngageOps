@@ -88,6 +88,11 @@ public class AssignmentMappingTests
             entity.GetIndexes(),
             index => index.Properties.SequenceEqual([organisationId, workerId]));
 
+        var listIndex = Assert.Single(
+            entity.GetIndexes(),
+            index => index.Properties.SequenceEqual([organisationId, startDate, id]));
+        Assert.Equal([false, true, false], listIndex.IsDescending);
+
         var dateConstraint = Assert.Single(entity.GetCheckConstraints());
         Assert.Equal("CK_assignments_date_range", dateConstraint.Name);
         Assert.Equal("end_date IS NULL OR end_date >= start_date", dateConstraint.Sql);

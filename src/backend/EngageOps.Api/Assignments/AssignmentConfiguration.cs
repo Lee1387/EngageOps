@@ -57,5 +57,13 @@ internal sealed class AssignmentConfiguration : IEntityTypeConfiguration<Assignm
             .HasForeignKey(assignment => new { assignment.OrganisationId, assignment.WorkerId })
             .HasPrincipalKey(worker => new { worker.OrganisationId, worker.Id })
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(assignment => new
+        {
+            assignment.OrganisationId,
+            assignment.StartDate,
+            assignment.Id,
+        })
+            .IsDescending(false, true, false);
     }
 }

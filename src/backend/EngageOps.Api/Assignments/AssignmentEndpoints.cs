@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using EngageOps.Api.Http;
 using EngageOps.Api.Identity;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -10,10 +11,79 @@ public static class AssignmentEndpoints
 {
     public static void MapAssignmentEndpoints(this IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapGet(
+                "/api/organisations/{organisationId:guid}/assignments",
+                GetAssignmentsAsync)
+            .RequireAuthorization();
+
         endpoints.MapPost(
                 "/api/organisations/{organisationId:guid}/assignments",
                 CreateAssignmentAsync)
             .RequireAuthorization();
+    }
+
+    private static async Task<IResult> GetAssignmentsAsync(
+        Guid organisationId,
+        int? page,
+        int? pageSize,
+        HttpContext context,
+        ClaimsPrincipal principal,
+        UserManager<ApplicationUser> userManager,
+        AssignmentListQuery query,
+        CancellationToken cancellationToken)
+    {
+        context.Response.Headers.CacheControl = "no-store";
+
+        if (!Guid.TryParse(userManager.GetUserId(principal), out var userId))
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "Authentication is required.");
+        }
+
+        if (organisationId == Guid.Empty)
+        {
+            return OrganisationNotFound();
+        }
+
+        var requestedPage = page ?? 1;
+        var requestedPageSize = pageSize ?? Pagination.DefaultPageSize;
+        var paginationErrors = Pagination.Validate(
+            requestedPage,
+            requestedPageSize,
+            out var offset);
+        if (paginationErrors.Count > 0)
+        {
+            return TypedResults.ValidationProblem(paginationErrors);
+        }
+
+        var result = await query.ExecuteAsync(
+            userId,
+            organisationId,
+            offset,
+            requestedPageSize,
+            cancellationToken);
+
+        return result switch
+        {
+            AssignmentListResult.Found found => TypedResults.Ok(new AssignmentPageResponse(
+                found.Items
+                    .Select(item => new AssignmentListItemResponse(
+                        item.Id,
+                        item.OrganisationId,
+                        item.ClientId,
+                        item.ClientName,
+                        item.WorkerId,
+                        item.WorkerName,
+                        item.StartDate,
+                        item.EndDate))
+                    .ToList(),
+                requestedPage,
+                requestedPageSize,
+                found.TotalCount)),
+            AssignmentListResult.OrganisationNotFound => OrganisationNotFound(),
+            _ => throw new InvalidOperationException("Unknown assignment list result."),
+        };
     }
 
     private static async Task<IResult> CreateAssignmentAsync(
@@ -139,4 +209,20 @@ public static class AssignmentEndpoints
         Guid WorkerId,
         DateOnly StartDate,
         DateOnly? EndDate);
+
+    public sealed record AssignmentListItemResponse(
+        Guid Id,
+        Guid OrganisationId,
+        Guid ClientId,
+        string ClientName,
+        Guid WorkerId,
+        string WorkerName,
+        DateOnly StartDate,
+        DateOnly? EndDate);
+
+    public sealed record AssignmentPageResponse(
+        IReadOnlyList<AssignmentListItemResponse> Items,
+        int Page,
+        int PageSize,
+        int TotalCount);
 }

@@ -72,6 +72,7 @@ builder.Services.ConfigureApplicationCookie(options =>
     };
 });
 builder.Services.AddScoped<AssignmentCreator>();
+builder.Services.AddScoped<AssignmentListQuery>();
 builder.Services.AddScoped<ClientCreator>();
 builder.Services.AddScoped<OrganisationMembershipChecker>();
 builder.Services.AddScoped<OrganisationProvisioner>();
