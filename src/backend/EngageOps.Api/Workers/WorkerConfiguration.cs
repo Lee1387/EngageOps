@@ -12,6 +12,9 @@ internal sealed class WorkerConfiguration : IEntityTypeConfiguration<Worker>
 
         builder.HasKey(worker => worker.Id);
 
+        // This composite key lets tenant-owned dependants enforce that the worker belongs to their organisation.
+        builder.HasAlternateKey(worker => new { worker.OrganisationId, worker.Id });
+
         builder.Property(worker => worker.Id)
             .HasColumnName("id")
             .ValueGeneratedNever();

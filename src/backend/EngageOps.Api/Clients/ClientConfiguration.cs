@@ -12,6 +12,9 @@ internal sealed class ClientConfiguration : IEntityTypeConfiguration<Client>
 
         builder.HasKey(client => client.Id);
 
+        // This composite key lets tenant-owned dependants enforce that the client belongs to their organisation.
+        builder.HasAlternateKey(client => new { client.OrganisationId, client.Id });
+
         builder.Property(client => client.Id)
             .HasColumnName("id")
             .ValueGeneratedNever();
