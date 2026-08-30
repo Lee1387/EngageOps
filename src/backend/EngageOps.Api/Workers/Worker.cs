@@ -28,27 +28,29 @@ public sealed class Worker
 
         ArgumentNullException.ThrowIfNull(name);
 
+        var validationError = GetNameValidationError(name);
+        if (validationError is not null)
+        {
+            throw new ArgumentException(validationError, nameof(name));
+        }
+
+        return new Worker(Guid.CreateVersion7(), organisationId, name.Trim());
+    }
+
+    internal static string? GetNameValidationError(string? name)
+    {
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ArgumentException("Worker name is required.", nameof(name));
+            return "Worker name is required.";
         }
 
         if (name.Any(char.IsControl))
         {
-            throw new ArgumentException(
-                "Worker name must not contain control characters.",
-                nameof(name));
+            return "Worker name must not contain control characters.";
         }
 
-        var trimmedName = name.Trim();
-
-        if (trimmedName.Length > MaxNameLength)
-        {
-            throw new ArgumentException(
-                $"Worker name must not exceed {MaxNameLength} characters.",
-                nameof(name));
-        }
-
-        return new Worker(Guid.CreateVersion7(), organisationId, trimmedName);
+        return name.Trim().Length > MaxNameLength
+            ? $"Worker name must not exceed {MaxNameLength} characters."
+            : null;
     }
 }
