@@ -1,5 +1,4 @@
 using System.Net;
-using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace EngageOps.Api.Tests;
 
@@ -8,7 +7,7 @@ public class HealthEndpointTests
     [Fact]
     public async Task GetHealthReturnsOk()
     {
-        using var factory = new WebApplicationFactory<Program>();
+        using var factory = new EngageOpsApiFactory();
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/health", TestContext.Current.CancellationToken);
