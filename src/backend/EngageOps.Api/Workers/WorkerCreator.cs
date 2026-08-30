@@ -1,19 +1,19 @@
 using EngageOps.Api.Organisations;
 using EngageOps.Api.Persistence;
 
-namespace EngageOps.Api.Clients;
+namespace EngageOps.Api.Workers;
 
-public sealed class ClientCreator(
+public sealed class WorkerCreator(
     EngageOpsDbContext context,
     OrganisationMembershipChecker membershipChecker)
 {
-    public async Task<Client?> CreateAsync(
+    public async Task<Worker?> CreateAsync(
         Guid userId,
         Guid organisationId,
         string name,
         CancellationToken cancellationToken)
     {
-        var client = Client.Create(organisationId, name);
+        var worker = Worker.Create(organisationId, name);
 
         // Missing and inaccessible organisations deliberately share one result to prevent tenant probing.
         if (!await membershipChecker.IsMemberAsync(userId, organisationId, cancellationToken))
@@ -21,9 +21,9 @@ public sealed class ClientCreator(
             return null;
         }
 
-        context.Clients.Add(client);
+        context.Workers.Add(worker);
         await context.SaveChangesAsync(cancellationToken);
 
-        return client;
+        return worker;
     }
 }

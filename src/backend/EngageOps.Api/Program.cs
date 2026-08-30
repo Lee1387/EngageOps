@@ -2,6 +2,7 @@ using EngageOps.Api.Clients;
 using EngageOps.Api.Identity;
 using EngageOps.Api.Organisations;
 using EngageOps.Api.Persistence;
+using EngageOps.Api.Workers;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -70,7 +71,9 @@ builder.Services.ConfigureApplicationCookie(options =>
     };
 });
 builder.Services.AddScoped<ClientCreator>();
+builder.Services.AddScoped<OrganisationMembershipChecker>();
 builder.Services.AddScoped<OrganisationProvisioner>();
+builder.Services.AddScoped<WorkerCreator>();
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();

@@ -1,17 +1,17 @@
-using EngageOps.Api.Clients;
 using EngageOps.Api.Identity;
 using EngageOps.Api.Organisations;
 using EngageOps.Api.Persistence;
 using EngageOps.Api.Tests.Persistence;
+using EngageOps.Api.Workers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace EngageOps.Api.Tests.Clients;
+namespace EngageOps.Api.Tests.Workers;
 
-public class ClientCreatorTests
+public class WorkerCreatorTests
 {
     [Fact]
-    public async Task CreateAsyncPersistsClientForOrganisationMember()
+    public async Task CreateAsyncPersistsWorkerForOrganisationMember()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var postgreSql = PostgreSqlTestDatabase.CreateContainer();
@@ -31,26 +31,26 @@ public class ClientCreatorTests
                 OrganisationMembership.Create(organisation.Id, user.Id));
             await context.SaveChangesAsync(cancellationToken);
 
-            var creator = scope.ServiceProvider.GetRequiredService<ClientCreator>();
-            var client = await creator.CreateAsync(
+            var creator = scope.ServiceProvider.GetRequiredService<WorkerCreator>();
+            var worker = await creator.CreateAsync(
                 user.Id,
                 organisation.Id,
-                "  Northstar Logistics  ",
+                "  Alex Morgan  ",
                 cancellationToken);
 
-            Assert.NotNull(client);
-            Assert.Equal("Northstar Logistics", client.Name);
+            Assert.NotNull(worker);
+            Assert.Equal("Alex Morgan", worker.Name);
         }
 
         using var verificationScope = factory.Services.CreateScope();
         var verificationContext = verificationScope.ServiceProvider
             .GetRequiredService<EngageOpsDbContext>();
-        var persistedClient = await verificationContext.Clients
+        var persistedWorker = await verificationContext.Workers
             .AsNoTracking()
             .SingleAsync(cancellationToken);
 
-        Assert.Equal(organisation.Id, persistedClient.OrganisationId);
-        Assert.Equal("Northstar Logistics", persistedClient.Name);
+        Assert.Equal(organisation.Id, persistedWorker.OrganisationId);
+        Assert.Equal("Alex Morgan", persistedWorker.Name);
     }
 
     [Fact]
@@ -77,31 +77,35 @@ public class ClientCreatorTests
             OrganisationMembership.Create(otherOrganisation.Id, otherUser.Id));
         await context.SaveChangesAsync(cancellationToken);
 
-        var creator = new ClientCreator(context, new OrganisationMembershipChecker(context));
-        var otherOrganisationsClient = await creator.CreateAsync(
+        var creator = new WorkerCreator(
+            context,
+            new OrganisationMembershipChecker(context));
+        var otherOrganisationsWorker = await creator.CreateAsync(
             user.Id,
             otherOrganisation.Id,
-            "Summit Distribution",
+            "Taylor Reed",
             cancellationToken);
-        var missingOrganisationsClient = await creator.CreateAsync(
+        var missingOrganisationsWorker = await creator.CreateAsync(
             user.Id,
             Guid.CreateVersion7(),
-            "Unknown Client",
+            "Jordan Blake",
             cancellationToken);
 
-        Assert.Null(otherOrganisationsClient);
-        Assert.Null(missingOrganisationsClient);
-        Assert.Empty(await context.Clients.ToListAsync(cancellationToken));
+        Assert.Null(otherOrganisationsWorker);
+        Assert.Null(missingOrganisationsWorker);
+        Assert.Empty(await context.Workers.ToListAsync(cancellationToken));
     }
 
     [Fact]
-    public async Task CreateAsyncUsesClientNameValidation()
+    public async Task CreateAsyncUsesWorkerNameValidation()
     {
         var options = new DbContextOptionsBuilder<EngageOpsDbContext>()
             .UseNpgsql("Host=localhost;Database=engageops_model_tests;Username=unused;Password=unused")
             .Options;
         await using var context = new EngageOpsDbContext(options);
-        var creator = new ClientCreator(context, new OrganisationMembershipChecker(context));
+        var creator = new WorkerCreator(
+            context,
+            new OrganisationMembershipChecker(context));
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
             creator.CreateAsync(

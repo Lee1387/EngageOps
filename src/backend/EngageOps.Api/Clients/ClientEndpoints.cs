@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using EngageOps.Api.Identity;
+using EngageOps.Api.Organisations;
 using EngageOps.Api.Persistence;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -33,6 +34,7 @@ public static class ClientEndpoints
         HttpContext context,
         ClaimsPrincipal principal,
         UserManager<ApplicationUser> userManager,
+        OrganisationMembershipChecker membershipChecker,
         EngageOpsDbContext database,
         CancellationToken cancellationToken)
     {
@@ -67,12 +69,7 @@ public static class ClientEndpoints
             });
         }
 
-        var isMember = await database.OrganisationMemberships.AnyAsync(
-            membership =>
-                membership.OrganisationId == organisationId && membership.UserId == userId,
-            cancellationToken);
-
-        if (!isMember)
+        if (!await membershipChecker.IsMemberAsync(userId, organisationId, cancellationToken))
         {
             return OrganisationNotFound();
         }
