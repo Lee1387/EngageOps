@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using EngageOps.Api.Http;
 using EngageOps.Api.Identity;
 using EngageOps.Api.Organisations;
 using EngageOps.Api.Persistence;
@@ -11,9 +12,6 @@ namespace EngageOps.Api.Clients;
 
 public static class ClientEndpoints
 {
-    private const int DefaultPageSize = 50;
-    private const int MaxPageSize = 100;
-
     public static void MapClientEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet(
@@ -53,20 +51,14 @@ public static class ClientEndpoints
         }
 
         var requestedPage = page ?? 1;
-        var requestedPageSize = pageSize ?? DefaultPageSize;
-        var paginationErrors = ValidatePagination(requestedPage, requestedPageSize);
+        var requestedPageSize = pageSize ?? Pagination.DefaultPageSize;
+        var paginationErrors = Pagination.Validate(
+            requestedPage,
+            requestedPageSize,
+            out var offset);
         if (paginationErrors.Count > 0)
         {
             return TypedResults.ValidationProblem(paginationErrors);
-        }
-
-        var offset = (long)(requestedPage - 1) * requestedPageSize;
-        if (offset > int.MaxValue)
-        {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
-            {
-                ["page"] = ["Page is too large."],
-            });
         }
 
         if (!await membershipChecker.IsMemberAsync(userId, organisationId, cancellationToken))
@@ -83,7 +75,7 @@ public static class ClientEndpoints
             : await clientQuery
                 .OrderBy(client => client.Name)
                 .ThenBy(client => client.Id)
-                .Skip((int)offset)
+                .Skip(offset)
                 .Take(requestedPageSize)
                 .Select(client => new ClientResponse(
                     client.Id,
@@ -154,23 +146,6 @@ public static class ClientEndpoints
         TypedResults.Problem(
             statusCode: StatusCodes.Status404NotFound,
             title: "Organisation was not found.");
-
-    private static Dictionary<string, string[]> ValidatePagination(int page, int pageSize)
-    {
-        var errors = new Dictionary<string, string[]>();
-
-        if (page < 1)
-        {
-            errors["page"] = ["Page must be at least 1."];
-        }
-
-        if (pageSize < 1 || pageSize > MaxPageSize)
-        {
-            errors["pageSize"] = [$"Page size must be between 1 and {MaxPageSize}."];
-        }
-
-        return errors;
-    }
 
     public sealed record CreateClientRequest(string? Name);
 
