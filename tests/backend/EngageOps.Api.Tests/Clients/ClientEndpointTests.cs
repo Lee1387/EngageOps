@@ -3,9 +3,9 @@ using System.Net.Http.Json;
 using EngageOps.Api.Identity;
 using EngageOps.Api.Organisations;
 using EngageOps.Api.Persistence;
+using EngageOps.Api.Tests.Http;
 using EngageOps.Api.Tests.Persistence;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ClientEntity = EngageOps.Api.Clients.Client;
@@ -14,13 +14,11 @@ namespace EngageOps.Api.Tests.Clients;
 
 public class ClientEndpointTests
 {
-    private const string Password = "ValidPassword1!";
-
     [Fact]
     public async Task CreateClientRequiresAuthentication()
     {
         using var factory = new EngageOpsApiFactory();
-        using var client = CreateSecureClient(factory);
+        using var client = ApiTestClient.Create(factory);
 
         using var response = await client.PostAsJsonAsync(
             $"/api/organisations/{Guid.CreateVersion7()}/clients",
@@ -56,8 +54,8 @@ public class ClientEndpointTests
             await context.SaveChangesAsync(cancellationToken);
         }
 
-        using var client = CreateSecureClient(factory);
-        await SignInAsync(client, "owner@northstar.example", cancellationToken);
+        using var client = ApiTestClient.Create(factory);
+        await client.SignInAsync("owner@northstar.example", cancellationToken);
         var path = $"/api/organisations/{organisation.Id}/clients";
 
         using (var missingAntiforgery = await client.PostAsJsonAsync(
@@ -72,10 +70,9 @@ public class ClientEndpointTests
                 cancellationToken);
         }
 
-        var antiforgeryToken = await GetAntiforgeryTokenAsync(client, cancellationToken);
+        var antiforgeryToken = await client.GetAntiforgeryTokenAsync(cancellationToken);
 
-        using (var emptyName = await PostJsonWithAntiforgeryAsync(
-            client,
+        using (var emptyName = await client.PostJsonWithAntiforgeryAsync(
             path,
             new { Name = " " },
             antiforgeryToken,
@@ -90,8 +87,7 @@ public class ClientEndpointTests
             Assert.Equal(["Client name is required."], problem.Errors["name"]);
         }
 
-        using (var oversizedName = await PostJsonWithAntiforgeryAsync(
-            client,
+        using (var oversizedName = await client.PostJsonWithAntiforgeryAsync(
             path,
             new { Name = new string('a', ClientEntity.MaxNameLength + 1) },
             antiforgeryToken,
@@ -108,8 +104,7 @@ public class ClientEndpointTests
                 problem.Errors["name"]);
         }
 
-        using (var controlCharacter = await PostJsonWithAntiforgeryAsync(
-            client,
+        using (var controlCharacter = await client.PostJsonWithAntiforgeryAsync(
             path,
             new { Name = "Northstar\0Logistics" },
             antiforgeryToken,
@@ -126,8 +121,7 @@ public class ClientEndpointTests
                 problem.Errors["name"]);
         }
 
-        using var response = await PostJsonWithAntiforgeryAsync(
-            client,
+        using var response = await client.PostJsonWithAntiforgeryAsync(
             path,
             new { Name = "  Northstar Logistics  " },
             antiforgeryToken,
@@ -183,9 +177,9 @@ public class ClientEndpointTests
             await context.SaveChangesAsync(cancellationToken);
         }
 
-        using var client = CreateSecureClient(factory);
-        await SignInAsync(client, "owner@northstar.example", cancellationToken);
-        var antiforgeryToken = await GetAntiforgeryTokenAsync(client, cancellationToken);
+        using var client = ApiTestClient.Create(factory);
+        await client.SignInAsync("owner@northstar.example", cancellationToken);
+        var antiforgeryToken = await client.GetAntiforgeryTokenAsync(cancellationToken);
 
         foreach (var organisationId in new[]
         {
@@ -194,8 +188,7 @@ public class ClientEndpointTests
             Guid.Empty,
         })
         {
-            using var response = await PostJsonWithAntiforgeryAsync(
-                client,
+            using var response = await client.PostJsonWithAntiforgeryAsync(
                 $"/api/organisations/{organisationId}/clients",
                 new { Name = "Northstar Logistics" },
                 antiforgeryToken,
@@ -218,7 +211,7 @@ public class ClientEndpointTests
     public async Task GetClientsRequiresAuthentication()
     {
         using var factory = new EngageOpsApiFactory();
-        using var client = CreateSecureClient(factory);
+        using var client = ApiTestClient.Create(factory);
 
         using var response = await client.GetAsync(
             $"/api/organisations/{Guid.CreateVersion7()}/clients",
@@ -263,8 +256,8 @@ public class ClientEndpointTests
             await database.SaveChangesAsync(cancellationToken);
         }
 
-        using var client = CreateSecureClient(factory);
-        await SignInAsync(client, "owner@northstar.example", cancellationToken);
+        using var client = ApiTestClient.Create(factory);
+        await client.SignInAsync("owner@northstar.example", cancellationToken);
 
         using var response = await client.GetAsync(
             $"/api/organisations/{organisation.Id}/clients",
@@ -319,8 +312,8 @@ public class ClientEndpointTests
             await database.SaveChangesAsync(cancellationToken);
         }
 
-        using var client = CreateSecureClient(factory);
-        await SignInAsync(client, "owner@northstar.example", cancellationToken);
+        using var client = ApiTestClient.Create(factory);
+        await client.SignInAsync("owner@northstar.example", cancellationToken);
 
         using (var emptyResponse = await client.GetAsync(
             $"/api/organisations/{emptyOrganisation.Id}/clients",
@@ -382,8 +375,8 @@ public class ClientEndpointTests
             await database.SaveChangesAsync(cancellationToken);
         }
 
-        using var client = CreateSecureClient(factory);
-        await SignInAsync(client, "owner@northstar.example", cancellationToken);
+        using var client = ApiTestClient.Create(factory);
+        await client.SignInAsync("owner@northstar.example", cancellationToken);
         var path = $"/api/organisations/{organisation.Id}/clients";
 
         using (var response = await client.GetAsync(
@@ -451,70 +444,17 @@ public class ClientEndpointTests
         }
     }
 
-    private static HttpClient CreateSecureClient(EngageOpsApiFactory factory) =>
-        factory.CreateClient(new WebApplicationFactoryClientOptions
-        {
-            AllowAutoRedirect = false,
-            BaseAddress = new Uri("https://localhost"),
-            HandleCookies = true,
-        });
-
     private static async Task<ApplicationUser> CreateUserAsync(
         IServiceProvider services,
         string email)
     {
         var user = new ApplicationUser { UserName = email, Email = email };
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
-        var result = await userManager.CreateAsync(user, Password);
+        var result = await userManager.CreateAsync(user, ApiTestClient.ValidPassword);
 
         Assert.True(result.Succeeded, string.Join(", ", result.Errors.Select(error => error.Description)));
 
         return user;
-    }
-
-    private static async Task SignInAsync(
-        HttpClient client,
-        string email,
-        CancellationToken cancellationToken)
-    {
-        var antiforgeryToken = await GetAntiforgeryTokenAsync(client, cancellationToken);
-        using var response = await PostJsonWithAntiforgeryAsync(
-            client,
-            "/api/auth/sign-in",
-            new { Email = email, Password },
-            antiforgeryToken,
-            cancellationToken);
-
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-    }
-
-    private static async Task<string> GetAntiforgeryTokenAsync(
-        HttpClient client,
-        CancellationToken cancellationToken)
-    {
-        using var response = await client.GetAsync("/api/auth/csrf", cancellationToken);
-        response.EnsureSuccessStatusCode();
-        var token = await response.Content.ReadFromJsonAsync<AntiforgeryTokenResponse>(cancellationToken);
-
-        Assert.NotNull(token);
-
-        return token.Token;
-    }
-
-    private static async Task<HttpResponseMessage> PostJsonWithAntiforgeryAsync<TRequest>(
-        HttpClient client,
-        string path,
-        TRequest body,
-        string antiforgeryToken,
-        CancellationToken cancellationToken)
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Post, path)
-        {
-            Content = JsonContent.Create(body),
-        };
-        request.Headers.Add(AuthenticationEndpoints.AntiforgeryHeaderName, antiforgeryToken);
-
-        return await client.SendAsync(request, cancellationToken);
     }
 
     private static async Task<ProblemResponse> AssertProblemAsync(
@@ -533,8 +473,6 @@ public class ClientEndpointTests
 
         return problem;
     }
-
-    private sealed record AntiforgeryTokenResponse(string Token);
 
     private sealed record ClientResponse(Guid Id, Guid OrganisationId, string Name);
 

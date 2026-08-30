@@ -3,9 +3,9 @@ using System.Net.Http.Json;
 using EngageOps.Api.Identity;
 using EngageOps.Api.Organisations;
 using EngageOps.Api.Persistence;
+using EngageOps.Api.Tests.Http;
 using EngageOps.Api.Tests.Persistence;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -13,13 +13,11 @@ namespace EngageOps.Api.Tests.Organisations;
 
 public class OrganisationEndpointTests
 {
-    private const string Password = "ValidPassword1!";
-
     [Fact]
     public async Task GetOrganisationsRequiresAuthentication()
     {
         using var factory = new EngageOpsApiFactory();
-        using var client = CreateSecureClient(factory);
+        using var client = ApiTestClient.Create(factory);
 
         using var response = await client.GetAsync(
             "/api/organisations",
@@ -68,8 +66,8 @@ public class OrganisationEndpointTests
             await context.SaveChangesAsync(cancellationToken);
         }
 
-        using var client = CreateSecureClient(factory);
-        await SignInAsync(client, "owner@northstar.example", cancellationToken);
+        using var client = ApiTestClient.Create(factory);
+        await client.SignInAsync("owner@northstar.example", cancellationToken);
 
         using var response = await client.GetAsync("/api/organisations", cancellationToken);
 
@@ -101,8 +99,8 @@ public class OrganisationEndpointTests
             await CreateUserAsync(scope.ServiceProvider, "owner@northstar.example");
         }
 
-        using var client = CreateSecureClient(factory);
-        await SignInAsync(client, "owner@northstar.example", cancellationToken);
+        using var client = ApiTestClient.Create(factory);
+        await client.SignInAsync("owner@northstar.example", cancellationToken);
 
         using var response = await client.GetAsync("/api/organisations", cancellationToken);
 
@@ -114,50 +112,18 @@ public class OrganisationEndpointTests
         Assert.Empty(organisations);
     }
 
-    private static HttpClient CreateSecureClient(EngageOpsApiFactory factory) =>
-        factory.CreateClient(new WebApplicationFactoryClientOptions
-        {
-            AllowAutoRedirect = false,
-            BaseAddress = new Uri("https://localhost"),
-            HandleCookies = true,
-        });
-
     private static async Task<ApplicationUser> CreateUserAsync(
         IServiceProvider services,
         string email)
     {
         var user = new ApplicationUser { UserName = email, Email = email };
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
-        var result = await userManager.CreateAsync(user, Password);
+        var result = await userManager.CreateAsync(user, ApiTestClient.ValidPassword);
 
         Assert.True(result.Succeeded, string.Join(", ", result.Errors.Select(error => error.Description)));
 
         return user;
     }
-
-    private static async Task SignInAsync(
-        HttpClient client,
-        string email,
-        CancellationToken cancellationToken)
-    {
-        using var antiforgeryResponse = await client.GetAsync("/api/auth/csrf", cancellationToken);
-        antiforgeryResponse.EnsureSuccessStatusCode();
-        var antiforgery = await antiforgeryResponse.Content
-            .ReadFromJsonAsync<AntiforgeryTokenResponse>(cancellationToken);
-        Assert.NotNull(antiforgery);
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/sign-in")
-        {
-            Content = JsonContent.Create(new { Email = email, Password }),
-        };
-        request.Headers.Add(AuthenticationEndpoints.AntiforgeryHeaderName, antiforgery.Token);
-
-        using var response = await client.SendAsync(request, cancellationToken);
-
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-    }
-
-    private sealed record AntiforgeryTokenResponse(string Token);
 
     private sealed record OrganisationSummaryResponse(Guid Id, string Name);
 
