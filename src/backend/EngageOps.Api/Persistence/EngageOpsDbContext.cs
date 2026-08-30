@@ -1,6 +1,7 @@
 using EngageOps.Api.Clients;
 using EngageOps.Api.Identity;
 using EngageOps.Api.Organisations;
+using EngageOps.Api.Workers;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,6 +16,8 @@ public sealed class EngageOpsDbContext(DbContextOptions<EngageOpsDbContext> opti
 
     public DbSet<OrganisationMembership> OrganisationMemberships => Set<OrganisationMembership>();
 
+    public DbSet<Worker> Workers => Set<Worker>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -23,5 +26,6 @@ public sealed class EngageOpsDbContext(DbContextOptions<EngageOpsDbContext> opti
         builder.ApplyConfiguration(new ClientConfiguration());
         builder.ApplyConfiguration(new OrganisationConfiguration());
         builder.ApplyConfiguration(new OrganisationMembershipConfiguration());
+        builder.ApplyConfiguration(new WorkerConfiguration());
     }
 }
