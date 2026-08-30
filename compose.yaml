@@ -26,6 +26,7 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
+      # Preserve Data Protection keys so authentication cookies survive backend rebuilds.
       - data-protection-keys:/root/.aspnet/DataProtection-Keys
     depends_on:
       postgres:

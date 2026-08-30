@@ -62,6 +62,7 @@ public static class AuthenticationEndpoints
             isPersistent: false,
             lockoutOnFailure: true);
 
+        // Keep account existence, password failure, and lockout state indistinguishable to callers.
         return result.Succeeded
             ? TypedResults.NoContent()
             : TypedResults.Problem(

@@ -1,3 +1,4 @@
+using EngageOps.Api.Clients;
 using EngageOps.Api.Identity;
 using EngageOps.Api.Organisations;
 using EngageOps.Api.Persistence;
@@ -30,6 +31,7 @@ builder.Services.AddAntiforgery(options =>
         : CookieSecurePolicy.Always;
 });
 builder.Services.AddProblemDetails();
+// Avoid environment-dependent exception details for malformed Minimal API request bodies.
 builder.Services.Configure<RouteHandlerOptions>(options =>
     options.ThrowOnBadRequest = false);
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
@@ -67,6 +69,7 @@ builder.Services.ConfigureApplicationCookie(options =>
             .ExecuteAsync(context.HttpContext);
     };
 });
+builder.Services.AddScoped<ClientCreator>();
 builder.Services.AddScoped<OrganisationProvisioner>();
 builder.Services.AddHealthChecks();
 

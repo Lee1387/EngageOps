@@ -59,6 +59,7 @@ jobs:
           --configuration Release
           --no-build
 
+      # Hosted runners may bundle Compose versions too old for develop.watch.initial_sync.
       - name: Setup Docker Compose
         uses: docker/setup-compose-action@v2
         with:

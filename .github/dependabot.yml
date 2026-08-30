@@ -1,5 +1,6 @@
 version: 2
 
+# Frontend upgrades are deliberate; dependency-audit.yml monitors pnpm vulnerabilities.
 updates:
   - package-ecosystem: nuget
     directory: /

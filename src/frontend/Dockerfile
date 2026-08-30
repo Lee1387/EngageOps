@@ -2,6 +2,7 @@ FROM node:24.20.0-bookworm
 
 WORKDIR /workspace/src/frontend
 
+# npm requires explicit approval for @pnpm/exe's required install script.
 RUN npm install --global --allow-scripts=@pnpm/exe @pnpm/exe@12.0.0
 
 COPY src/frontend/package.json src/frontend/pnpm-lock.yaml ./
