@@ -50,6 +50,18 @@ public class ClientTests
             Client.Create(Guid.CreateVersion7(), name));
     }
 
+    [Theory]
+    [InlineData("Northstar\0Logistics")]
+    [InlineData("Northstar\nLogistics")]
+    [InlineData("Northstar\tLogistics")]
+    public void CreateRejectsNameContainingControlCharacters(string name)
+    {
+        var exception = Assert.Throws<ArgumentException>(() =>
+            Client.Create(Guid.CreateVersion7(), name));
+
+        Assert.Equal("name", exception.ParamName);
+    }
+
     [Fact]
     public void CreateAcceptsNameAtMaximumLength()
     {

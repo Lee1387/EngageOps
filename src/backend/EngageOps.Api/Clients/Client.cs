@@ -26,17 +26,31 @@ public sealed class Client
                 nameof(organisationId));
         }
 
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(name);
 
-        var trimmedName = name.Trim();
-
-        if (trimmedName.Length > MaxNameLength)
+        var validationError = GetNameValidationError(name);
+        if (validationError is not null)
         {
-            throw new ArgumentException(
-                $"Client name must not exceed {MaxNameLength} characters.",
-                nameof(name));
+            throw new ArgumentException(validationError, nameof(name));
         }
 
-        return new Client(Guid.CreateVersion7(), organisationId, trimmedName);
+        return new Client(Guid.CreateVersion7(), organisationId, name.Trim());
+    }
+
+    internal static string? GetNameValidationError(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return "Client name is required.";
+        }
+
+        if (name.Any(char.IsControl))
+        {
+            return "Client name must not contain control characters.";
+        }
+
+        return name.Trim().Length > MaxNameLength
+            ? $"Client name must not exceed {MaxNameLength} characters."
+            : null;
     }
 }

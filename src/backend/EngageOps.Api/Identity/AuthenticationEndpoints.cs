@@ -44,7 +44,7 @@ public static class AuthenticationEndpoints
     {
         context.Response.Headers.CacheControl = "no-store";
 
-        var antiforgeryError = await ValidateAntiforgeryAsync(context, antiforgery);
+        var antiforgeryError = await AntiforgeryValidation.ValidateAsync(context, antiforgery);
         if (antiforgeryError is not null)
         {
             return antiforgeryError;
@@ -92,7 +92,7 @@ public static class AuthenticationEndpoints
     {
         context.Response.Headers.CacheControl = "no-store";
 
-        var antiforgeryError = await ValidateAntiforgeryAsync(context, antiforgery);
+        var antiforgeryError = await AntiforgeryValidation.ValidateAsync(context, antiforgery);
         if (antiforgeryError is not null)
         {
             return antiforgeryError;
@@ -131,23 +131,6 @@ public static class AuthenticationEndpoints
         }
 
         return errors;
-    }
-
-    private static async Task<ProblemHttpResult?> ValidateAntiforgeryAsync(
-        HttpContext context,
-        IAntiforgery antiforgery)
-    {
-        try
-        {
-            await antiforgery.ValidateRequestAsync(context);
-            return null;
-        }
-        catch (AntiforgeryValidationException)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status400BadRequest,
-                title: "The antiforgery token is invalid.");
-        }
     }
 
     public sealed record SignInRequest(string? Email, string? Password);
