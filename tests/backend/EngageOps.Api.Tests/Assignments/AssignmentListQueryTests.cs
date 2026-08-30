@@ -203,7 +203,7 @@ public class AssignmentListQueryTests
     }
 
     private static void AssertItem(
-        AssignmentListItem item,
+        AssignmentSummary item,
         Assignment assignment,
         string clientName,
         string workerName)

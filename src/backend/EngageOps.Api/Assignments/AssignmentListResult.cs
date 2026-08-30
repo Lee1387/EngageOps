@@ -7,18 +7,8 @@ public abstract record AssignmentListResult
     }
 
     public sealed record Found(
-        IReadOnlyList<AssignmentListItem> Items,
+        IReadOnlyList<AssignmentSummary> Items,
         int TotalCount) : AssignmentListResult;
 
     public sealed record OrganisationNotFound : AssignmentListResult;
 }
-
-public sealed record AssignmentListItem(
-    Guid Id,
-    Guid OrganisationId,
-    Guid ClientId,
-    string ClientName,
-    Guid WorkerId,
-    string WorkerName,
-    DateOnly StartDate,
-    DateOnly? EndDate);

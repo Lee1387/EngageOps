@@ -9,11 +9,19 @@ namespace EngageOps.Api.Assignments;
 
 public static class AssignmentEndpoints
 {
+    private const string GetAssignmentRouteName = "GetAssignment";
+
     public static void MapAssignmentEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet(
                 "/api/organisations/{organisationId:guid}/assignments",
                 GetAssignmentsAsync)
+            .RequireAuthorization();
+
+        endpoints.MapGet(
+                "/api/organisations/{organisationId:guid}/assignments/{assignmentId:guid}",
+                GetAssignmentAsync)
+            .WithName(GetAssignmentRouteName)
             .RequireAuthorization();
 
         endpoints.MapPost(
@@ -68,21 +76,51 @@ public static class AssignmentEndpoints
         {
             AssignmentListResult.Found found => TypedResults.Ok(new AssignmentPageResponse(
                 found.Items
-                    .Select(item => new AssignmentListItemResponse(
-                        item.Id,
-                        item.OrganisationId,
-                        item.ClientId,
-                        item.ClientName,
-                        item.WorkerId,
-                        item.WorkerName,
-                        item.StartDate,
-                        item.EndDate))
+                    .Select(ToResponse)
                     .ToList(),
                 requestedPage,
                 requestedPageSize,
                 found.TotalCount)),
             AssignmentListResult.OrganisationNotFound => OrganisationNotFound(),
             _ => throw new InvalidOperationException("Unknown assignment list result."),
+        };
+    }
+
+    private static async Task<IResult> GetAssignmentAsync(
+        Guid organisationId,
+        Guid assignmentId,
+        HttpContext context,
+        ClaimsPrincipal principal,
+        UserManager<ApplicationUser> userManager,
+        AssignmentDetailQuery query,
+        CancellationToken cancellationToken)
+    {
+        context.Response.Headers.CacheControl = "no-store";
+
+        if (!Guid.TryParse(userManager.GetUserId(principal), out var userId))
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "Authentication is required.");
+        }
+
+        if (organisationId == Guid.Empty)
+        {
+            return OrganisationNotFound();
+        }
+
+        var result = await query.ExecuteAsync(
+            userId,
+            organisationId,
+            assignmentId,
+            cancellationToken);
+
+        return result switch
+        {
+            AssignmentDetailResult.Found found => TypedResults.Ok(ToResponse(found.Assignment)),
+            AssignmentDetailResult.OrganisationNotFound => OrganisationNotFound(),
+            AssignmentDetailResult.AssignmentNotFound => AssignmentNotFound(),
+            _ => throw new InvalidOperationException("Unknown assignment detail result."),
         };
     }
 
@@ -133,7 +171,7 @@ public static class AssignmentEndpoints
 
         return result switch
         {
-            AssignmentCreationResult.Created created => TypedResults.Json(
+            AssignmentCreationResult.Created created => TypedResults.CreatedAtRoute(
                 new AssignmentResponse(
                     created.Assignment.Id,
                     created.Assignment.OrganisationId,
@@ -141,7 +179,12 @@ public static class AssignmentEndpoints
                     created.Assignment.WorkerId,
                     created.Assignment.StartDate,
                     created.Assignment.EndDate),
-                statusCode: StatusCodes.Status201Created),
+                GetAssignmentRouteName,
+                new
+                {
+                    organisationId = created.Assignment.OrganisationId,
+                    assignmentId = created.Assignment.Id,
+                }),
             AssignmentCreationResult.OrganisationNotFound => OrganisationNotFound(),
             AssignmentCreationResult.ClientNotFound => RelationshipNotFound(
                 "clientId",
@@ -185,10 +228,26 @@ public static class AssignmentEndpoints
         return errors;
     }
 
+    private static AssignmentSummaryResponse ToResponse(AssignmentSummary assignment) =>
+        new(
+            assignment.Id,
+            assignment.OrganisationId,
+            assignment.ClientId,
+            assignment.ClientName,
+            assignment.WorkerId,
+            assignment.WorkerName,
+            assignment.StartDate,
+            assignment.EndDate);
+
     private static ProblemHttpResult OrganisationNotFound() =>
         TypedResults.Problem(
             statusCode: StatusCodes.Status404NotFound,
             title: "Organisation was not found.");
+
+    private static ProblemHttpResult AssignmentNotFound() =>
+        TypedResults.Problem(
+            statusCode: StatusCodes.Status404NotFound,
+            title: "Assignment was not found.");
 
     private static ValidationProblem RelationshipNotFound(string key, string error) =>
         TypedResults.ValidationProblem(new Dictionary<string, string[]>
@@ -210,7 +269,7 @@ public static class AssignmentEndpoints
         DateOnly StartDate,
         DateOnly? EndDate);
 
-    public sealed record AssignmentListItemResponse(
+    public sealed record AssignmentSummaryResponse(
         Guid Id,
         Guid OrganisationId,
         Guid ClientId,
@@ -221,7 +280,7 @@ public static class AssignmentEndpoints
         DateOnly? EndDate);
 
     public sealed record AssignmentPageResponse(
-        IReadOnlyList<AssignmentListItemResponse> Items,
+        IReadOnlyList<AssignmentSummaryResponse> Items,
         int Page,
         int PageSize,
         int TotalCount);

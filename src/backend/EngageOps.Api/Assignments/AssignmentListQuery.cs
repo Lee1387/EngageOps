@@ -32,26 +32,12 @@ public sealed class AssignmentListQuery(
             return new AssignmentListResult.Found([], totalCount);
         }
 
-        var items = await (
-                from assignment in assignmentQuery
-                join client in context.Clients.AsNoTracking()
-                    on new { assignment.OrganisationId, Id = assignment.ClientId }
-                    equals new { client.OrganisationId, client.Id }
-                join worker in context.Workers.AsNoTracking()
-                    on new { assignment.OrganisationId, Id = assignment.WorkerId }
-                    equals new { worker.OrganisationId, worker.Id }
-                orderby assignment.StartDate descending, assignment.Id
-                select new AssignmentListItem(
-                    assignment.Id,
-                    assignment.OrganisationId,
-                    assignment.ClientId,
-                    client.Name,
-                    assignment.WorkerId,
-                    worker.Name,
-                    assignment.StartDate,
-                    assignment.EndDate))
+        var pageQuery = assignmentQuery
+            .OrderByDescending(assignment => assignment.StartDate)
+            .ThenBy(assignment => assignment.Id)
             .Skip(offset)
-            .Take(pageSize)
+            .Take(pageSize);
+        var items = await AssignmentSummaryQuery.Project(context, pageQuery)
             .ToListAsync(cancellationToken);
 
         return new AssignmentListResult.Found(items, totalCount);

@@ -158,6 +158,15 @@ public class AssignmentEndpointTests
         Assert.Equal(worker.Id, created.WorkerId);
         Assert.Equal(validRequest.StartDate, created.StartDate);
         Assert.Equal(validRequest.EndDate, created.EndDate);
+        Assert.NotNull(response.Headers.Location);
+        Assert.Equal(
+            $"/api/organisations/{organisation.Id}/assignments/{created.Id}",
+            response.Headers.Location.AbsolutePath);
+
+        using var detailResponse = await client.GetAsync(
+            response.Headers.Location.ToString(),
+            cancellationToken);
+        Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
 
         using var verificationScope = factory.Services.CreateScope();
         var verificationContext = verificationScope.ServiceProvider
