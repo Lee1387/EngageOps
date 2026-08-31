@@ -1,136 +1,221 @@
-import type { SyntheticEvent } from 'react'
+import { useState, type SyntheticEvent } from 'react'
+import { FiAlertCircle, FiEye, FiEyeOff, FiLock, FiMail } from 'react-icons/fi'
 import { useSignIn } from './useSignIn'
 
+interface ClientValidationErrors {
+  email?: string
+  password?: string
+}
+
 export function SignInForm() {
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
+  const [clientErrors, setClientErrors] = useState<ClientValidationErrors>({})
   const signIn = useSignIn()
-  const validationErrors =
+  const serverErrors =
     signIn.data?.outcome === 'invalidInput' ? signIn.data.errors : null
-  const invalidCredentials = signIn.data?.outcome === 'invalidCredentials'
+  const emailError = clientErrors.email ?? serverErrors?.email?.join(' ')
+  const passwordError =
+    clientErrors.password ?? serverErrors?.password?.join(' ')
+  const authenticationFailed =
+    signIn.data?.outcome === 'invalidCredentials' || signIn.isError
 
   function handleSubmit(event: SyntheticEvent<HTMLFormElement, SubmitEvent>) {
     event.preventDefault()
+    signIn.reset()
 
-    const formData = new FormData(event.currentTarget)
+    const form = event.currentTarget
+    const formData = new FormData(form)
     const email = formData.get('email')
     const password = formData.get('password')
+    const emailValue = typeof email === 'string' ? email.trim() : ''
+    const passwordValue = typeof password === 'string' ? password : ''
+    const emailInput = form.elements.namedItem('email')
+    const nextErrors: ClientValidationErrors = {}
+
+    if (!emailValue) {
+      nextErrors.email = 'Enter your email address'
+    } else if (
+      emailInput instanceof HTMLInputElement &&
+      emailInput.validity.typeMismatch
+    ) {
+      nextErrors.email = 'Enter a valid email address'
+    }
+
+    if (!passwordValue) {
+      nextErrors.password = 'Enter your password'
+    }
+
+    setClientErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) {
+      const firstInvalidField = nextErrors.email
+        ? emailInput
+        : form.elements.namedItem('password')
+
+      if (firstInvalidField instanceof HTMLInputElement) {
+        firstInvalidField.focus()
+      }
+
+      return
+    }
 
     signIn.mutate({
-      email: typeof email === 'string' ? email : '',
-      password: typeof password === 'string' ? password : '',
+      email: emailValue,
+      password: passwordValue,
     })
+  }
+
+  function clearFieldError(field: keyof ClientValidationErrors) {
+    setClientErrors((current) => ({ ...current, [field]: undefined }))
+    signIn.reset()
   }
 
   return (
     <div>
-      <div className="mb-6 grid size-11 place-items-center rounded-2xl bg-blue-50 text-blue-700 ring-1 ring-blue-100">
-        <svg
-          aria-hidden="true"
-          className="size-5"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        >
-          <path
-            d="M8 10V8a4 4 0 1 1 8 0v2m-9 0h10a2 2 0 0 1 2 2v7H5v-7a2 2 0 0 1 2-2Z"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </div>
-      <p className="text-sm font-semibold text-blue-700">Welcome back</p>
-      <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-        Sign in to EngageOps
-      </h2>
-      <p className="mt-3 text-sm leading-6 text-slate-600">
-        Access your organisation’s clients, workers and assignments.
+      <h1 className="text-3xl font-semibold tracking-[-0.03em] text-ink sm:text-4xl">
+        Welcome back
+      </h1>
+      <p className="mt-3 text-base text-muted">
+        Sign in to continue to EngageOps
       </p>
 
       <form
         aria-label="Sign in"
-        className="mt-8 space-y-5"
+        className="mt-9"
+        noValidate
         onSubmit={handleSubmit}
       >
         <div>
           <label
-            className="block text-sm font-medium text-slate-800"
+            className="block text-sm font-semibold text-ink"
             htmlFor="email"
           >
             Email address
           </label>
-          <input
-            className="mt-2 block w-full rounded-xl border border-slate-300 bg-slate-50/50 px-3.5 py-3 text-slate-950 shadow-sm transition-all outline-none placeholder:text-slate-400 hover:border-slate-400 hover:bg-white focus:border-blue-600 focus:bg-white focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            disabled={signIn.isPending}
-            aria-invalid={Boolean(validationErrors?.email)}
-            aria-describedby={
-              validationErrors?.email ? 'email-errors' : undefined
-            }
-            onChange={() => {
-              signIn.reset()
-            }}
-          />
-          {validationErrors?.email && (
-            <p className="mt-2 text-sm text-red-700" id="email-errors">
-              {validationErrors.email.join(' ')}
-            </p>
-          )}
+          <div className="relative mt-2">
+            <FiMail
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted"
+            />
+            <input
+              className="form-control pl-12"
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              maxLength={256}
+              placeholder="you@example.com"
+              disabled={signIn.isPending}
+              aria-invalid={Boolean(emailError)}
+              aria-describedby={emailError ? 'email-error' : undefined}
+              onChange={() => {
+                clearFieldError('email')
+              }}
+            />
+          </div>
+          <div className="min-h-6 pt-1" aria-live="polite">
+            {emailError && (
+              <p
+                className="field-error flex items-center gap-1.5 text-sm text-red-700"
+                id="email-error"
+              >
+                <FiAlertCircle aria-hidden="true" className="size-4 shrink-0" />
+                {emailError}
+              </p>
+            )}
+          </div>
         </div>
 
-        <div>
-          <label
-            className="block text-sm font-medium text-slate-800"
-            htmlFor="password"
-          >
-            Password
-          </label>
-          <input
-            className="mt-2 block w-full rounded-xl border border-slate-300 bg-slate-50/50 px-3.5 py-3 text-slate-950 shadow-sm transition-all outline-none placeholder:text-slate-400 hover:border-slate-400 hover:bg-white focus:border-blue-600 focus:bg-white focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            disabled={signIn.isPending}
-            aria-invalid={Boolean(validationErrors?.password)}
-            aria-describedby={
-              validationErrors?.password ? 'password-errors' : undefined
-            }
-            onChange={() => {
-              signIn.reset()
-            }}
-          />
-          {validationErrors?.password && (
-            <p className="mt-2 text-sm text-red-700" id="password-errors">
-              {validationErrors.password.join(' ')}
-            </p>
-          )}
+        <div className="mt-2">
+          <div className="flex items-center justify-between gap-4">
+            <label
+              className="block text-sm font-semibold text-ink"
+              htmlFor="password"
+            >
+              Password
+            </label>
+            <button
+              className="cursor-not-allowed border-0 bg-transparent p-0 text-sm font-medium text-brand-700 opacity-70"
+              type="button"
+              disabled
+              title="Password recovery is not available yet"
+            >
+              Forgot password?
+            </button>
+          </div>
+          <div className="relative mt-2">
+            <FiLock
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted"
+            />
+            <input
+              className="form-control pr-12 pl-12"
+              id="password"
+              name="password"
+              type={isPasswordVisible ? 'text' : 'password'}
+              autoComplete="current-password"
+              maxLength={256}
+              placeholder="Enter your password"
+              disabled={signIn.isPending}
+              aria-invalid={Boolean(passwordError)}
+              aria-describedby={passwordError ? 'password-error' : undefined}
+              onChange={() => {
+                clearFieldError('password')
+              }}
+            />
+            <button
+              aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}
+              aria-pressed={isPasswordVisible}
+              className="absolute top-1/2 right-2 grid size-10 -translate-y-1/2 cursor-pointer place-items-center rounded-lg text-muted transition-colors duration-200 hover:bg-slate-100 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-700 disabled:cursor-not-allowed"
+              type="button"
+              disabled={signIn.isPending}
+              onClick={() => {
+                setIsPasswordVisible((visible) => !visible)
+              }}
+            >
+              {isPasswordVisible ? (
+                <FiEyeOff aria-hidden="true" className="size-5" />
+              ) : (
+                <FiEye aria-hidden="true" className="size-5" />
+              )}
+            </button>
+          </div>
+          <div className="min-h-6 pt-1" aria-live="polite">
+            {passwordError && (
+              <p
+                className="field-error flex items-center gap-1.5 text-sm text-red-700"
+                id="password-error"
+              >
+                <FiAlertCircle aria-hidden="true" className="size-4 shrink-0" />
+                {passwordError}
+              </p>
+            )}
+          </div>
         </div>
 
-        {invalidCredentials && (
-          <p
-            className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
-            role="alert"
-          >
-            Invalid email or password.
-          </p>
-        )}
-
-        {signIn.isError && (
-          <p
-            className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
-            role="alert"
-          >
-            We couldn’t sign you in. Please try again.
-          </p>
-        )}
+        <div
+          className={`auth-error-region ${authenticationFailed ? 'auth-error-region-visible' : ''}`}
+        >
+          <div>
+            {authenticationFailed && (
+              <p
+                className="flex items-start gap-2 rounded-control border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-800"
+                role="alert"
+              >
+                <FiAlertCircle
+                  aria-hidden="true"
+                  className="mt-0.5 size-4 shrink-0"
+                />
+                We couldn't sign you in. Check your email and password and try
+                again.
+              </p>
+            )}
+          </div>
+        </div>
 
         <button
-          className="group flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-700/20 transition-all hover:-translate-y-0.5 hover:bg-blue-800 hover:shadow-xl hover:shadow-blue-700/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 active:translate-y-0 active:shadow-md disabled:cursor-wait disabled:bg-blue-400 disabled:shadow-none disabled:hover:translate-y-0"
+          className="button-primary w-full px-4 py-3.5"
           type="submit"
           disabled={signIn.isPending}
         >
@@ -143,44 +228,10 @@ export function SignInForm() {
               Signing in…
             </>
           ) : (
-            <>
-              Sign in
-              <svg
-                aria-hidden="true"
-                className="size-4 transition-transform group-hover:translate-x-0.5"
-                viewBox="0 0 20 20"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-              >
-                <path
-                  d="M4 10h12m-4-4 4 4-4 4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </>
+            'Sign in'
           )}
         </button>
       </form>
-
-      <div className="mt-6 flex items-center justify-center gap-2 border-t border-slate-100 pt-5 text-xs text-slate-500">
-        <svg
-          aria-hidden="true"
-          className="size-3.5 text-slate-400"
-          viewBox="0 0 20 20"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        >
-          <path
-            d="M5.5 8V6a4.5 4.5 0 0 1 9 0v2m-10 0h11v8h-11V8Z"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-        Secure access to your organisation
-      </div>
     </div>
   )
 }

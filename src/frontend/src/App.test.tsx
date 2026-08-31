@@ -17,10 +17,13 @@ describe('App', () => {
     renderApp()
 
     expect(
-      screen.getByRole('heading', {
-        name: 'Contractor operations, kept connected.',
-      }),
+      screen.getByText('Workforce operations, kept organised.'),
     ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', {
+        name: 'Workforce operations, kept organised.',
+      }),
+    ).not.toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent(
       'Checking your session…',
     )
@@ -35,7 +38,7 @@ describe('App', () => {
     renderApp()
 
     expect(
-      await screen.findByRole('heading', { name: 'Sign in to EngageOps' }),
+      await screen.findByRole('heading', { name: 'Welcome back' }),
     ).toBeInTheDocument()
     expect(screen.getByLabelText('Email address')).toBeInTheDocument()
     expect(screen.getByLabelText('Password')).toBeInTheDocument()
