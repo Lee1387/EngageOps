@@ -16,8 +16,12 @@ export function SignInForm() {
   const emailError = clientErrors.email ?? serverErrors?.email?.join(' ')
   const passwordError =
     clientErrors.password ?? serverErrors?.password?.join(' ')
-  const authenticationFailed =
-    signIn.data?.outcome === 'invalidCredentials' || signIn.isError
+  const authenticationError =
+    signIn.data?.outcome === 'invalidCredentials'
+      ? "We couldn't sign you in. Check your email and password and try again."
+      : signIn.isError
+        ? "We couldn't sign you in right now. Check your connection and try again."
+        : null
 
   function handleSubmit(event: SyntheticEvent<HTMLFormElement, SubmitEvent>) {
     event.preventDefault()
@@ -128,22 +132,12 @@ export function SignInForm() {
         </div>
 
         <div className="mt-2">
-          <div className="flex items-center justify-between gap-4">
-            <label
-              className="block text-sm font-semibold text-ink"
-              htmlFor="password"
-            >
-              Password
-            </label>
-            <button
-              className="cursor-not-allowed border-0 bg-transparent p-0 text-sm font-medium text-brand-700 opacity-70"
-              type="button"
-              disabled
-              title="Password recovery is not available yet"
-            >
-              Forgot password?
-            </button>
-          </div>
+          <label
+            className="block text-sm font-semibold text-ink"
+            htmlFor="password"
+          >
+            Password
+          </label>
           <div className="relative mt-2">
             <FiLock
               aria-hidden="true"
@@ -195,10 +189,10 @@ export function SignInForm() {
         </div>
 
         <div
-          className={`auth-error-region ${authenticationFailed ? 'auth-error-region-visible' : ''}`}
+          className={`auth-error-region ${authenticationError ? 'auth-error-region-visible' : ''}`}
         >
           <div>
-            {authenticationFailed && (
+            {authenticationError && (
               <p
                 className="flex items-start gap-2 rounded-control border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-800"
                 role="alert"
@@ -207,8 +201,7 @@ export function SignInForm() {
                   aria-hidden="true"
                   className="mt-0.5 size-4 shrink-0"
                 />
-                We couldn't sign you in. Check your email and password and try
-                again.
+                {authenticationError}
               </p>
             )}
           </div>

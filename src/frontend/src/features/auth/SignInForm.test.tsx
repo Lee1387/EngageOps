@@ -35,14 +35,6 @@ describe('SignInForm', () => {
     ).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('identifies password recovery as unavailable', () => {
-    renderForm()
-
-    expect(
-      screen.getByRole('button', { name: 'Forgot password?' }),
-    ).toBeDisabled()
-  })
-
   it('uses accessible custom validation for required fields', () => {
     const fetchMock = vi.fn<typeof fetch>()
     vi.stubGlobal('fetch', fetchMock)
@@ -175,7 +167,7 @@ describe('SignInForm', () => {
     submitValidCredentials()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      "We couldn't sign you in. Check your email and password and try again.",
+      "We couldn't sign you in right now. Check your connection and try again.",
     )
   })
 })

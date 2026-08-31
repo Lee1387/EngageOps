@@ -23,11 +23,9 @@ public static class OrganisationEndpoints
     {
         httpContext.Response.Headers.CacheControl = "no-store";
 
-        if (!Guid.TryParse(userManager.GetUserId(principal), out var userId))
+        if (!AuthenticatedUser.TryGetId(principal, userManager, out var userId))
         {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status401Unauthorized,
-                title: "Authentication is required.");
+            return AuthenticatedUser.CreateRequiredProblem();
         }
 
         var organisations = await context.OrganisationMemberships
