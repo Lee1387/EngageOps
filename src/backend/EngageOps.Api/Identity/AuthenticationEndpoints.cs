@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -9,11 +8,6 @@ namespace EngageOps.Api.Identity;
 public static class AuthenticationEndpoints
 {
     public const string AntiforgeryHeaderName = "X-CSRF-TOKEN";
-
-    private const int MaxEmailLength = 256;
-    private const int MaxPasswordLength = 256;
-
-    private static readonly EmailAddressAttribute EmailAddressValidator = new();
 
     public static void MapAuthenticationEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -106,28 +100,17 @@ public static class AuthenticationEndpoints
     private static Dictionary<string, string[]> Validate(SignInRequest request)
     {
         var errors = new Dictionary<string, string[]>();
-        var email = request.Email?.Trim();
-
-        if (string.IsNullOrEmpty(email))
+        var emailError = AuthenticationInputValidation.GetEmailValidationError(request.Email);
+        if (emailError is not null)
         {
-            errors["email"] = ["Email is required."];
-        }
-        else if (email.Length > MaxEmailLength)
-        {
-            errors["email"] = [$"Email must not exceed {MaxEmailLength} characters."];
-        }
-        else if (email.Any(char.IsControl) || !EmailAddressValidator.IsValid(email))
-        {
-            errors["email"] = ["Email must be a valid email address."];
+            errors["email"] = [emailError];
         }
 
-        if (string.IsNullOrEmpty(request.Password))
+        var passwordError = AuthenticationInputValidation.GetPasswordBoundaryValidationError(
+            request.Password);
+        if (passwordError is not null)
         {
-            errors["password"] = ["Password is required."];
-        }
-        else if (request.Password.Length > MaxPasswordLength)
-        {
-            errors["password"] = [$"Password must not exceed {MaxPasswordLength} characters."];
+            errors["password"] = [passwordError];
         }
 
         return errors;

@@ -75,6 +75,7 @@ builder.Services.ConfigureApplicationCookie(options =>
             .ExecuteAsync(context.HttpContext);
     };
 });
+builder.Services.AddScoped<AccountProvisioner>();
 builder.Services.AddScoped<AssignmentCanceller>();
 builder.Services.AddScoped<AssignmentCreator>();
 builder.Services.AddScoped<AssignmentDetailQuery>();
@@ -97,6 +98,7 @@ app.MapAssignmentEndpoints();
 app.MapAuthenticationEndpoints();
 app.MapClientEndpoints();
 app.MapOrganisationEndpoints();
+app.MapRegistrationEndpoints();
 app.MapWorkerEndpoints();
 
 app.Run();

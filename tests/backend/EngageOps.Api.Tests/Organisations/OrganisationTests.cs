@@ -55,4 +55,14 @@ public class OrganisationTests
 
         Assert.Equal("name", exception.ParamName);
     }
+
+    [Theory]
+    [InlineData("Northstar\0Workforce")]
+    [InlineData("Northstar\nWorkforce")]
+    public void CreateRejectsNameContainingControlCharacters(string name)
+    {
+        var exception = Assert.Throws<ArgumentException>(() => Organisation.Create(name));
+
+        Assert.Equal("name", exception.ParamName);
+    }
 }

@@ -16,17 +16,31 @@ public sealed class Organisation
 
     public static Organisation Create(string name)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(name);
 
-        var trimmedName = name.Trim();
-
-        if (trimmedName.Length > MaxNameLength)
+        var validationError = GetNameValidationError(name);
+        if (validationError is not null)
         {
-            throw new ArgumentException(
-                $"Organisation name must not exceed {MaxNameLength} characters.",
-                nameof(name));
+            throw new ArgumentException(validationError, nameof(name));
         }
 
-        return new Organisation(Guid.CreateVersion7(), trimmedName);
+        return new Organisation(Guid.CreateVersion7(), name.Trim());
+    }
+
+    internal static string? GetNameValidationError(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return "Organisation name is required.";
+        }
+
+        if (name.Any(char.IsControl))
+        {
+            return "Organisation name must not contain control characters.";
+        }
+
+        return name.Trim().Length > MaxNameLength
+            ? $"Organisation name must not exceed {MaxNameLength} characters."
+            : null;
     }
 }

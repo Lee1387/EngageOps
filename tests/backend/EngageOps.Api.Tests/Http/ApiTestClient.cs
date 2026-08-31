@@ -15,7 +15,7 @@ internal sealed class ApiTestClient : IDisposable
         this.client = client;
     }
 
-    public static ApiTestClient Create(EngageOpsApiFactory factory) =>
+    public static ApiTestClient Create(WebApplicationFactory<Program> factory) =>
         new(factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false,
