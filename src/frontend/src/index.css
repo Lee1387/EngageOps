@@ -1,1 +1,113 @@
 @import 'tailwindcss';
+
+:root {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.auth-shell {
+  background:
+    radial-gradient(
+      circle at 16% 12%,
+      rgb(219 234 254 / 70%),
+      transparent 28rem
+    ),
+    radial-gradient(
+      circle at 88% 88%,
+      rgb(207 250 254 / 55%),
+      transparent 26rem
+    ),
+    linear-gradient(145deg, #f8fafc 0%, #f5f8ff 50%, #f8fafc 100%);
+}
+
+.auth-grid {
+  background-image:
+    linear-gradient(rgb(148 163 184 / 10%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(148 163 184 / 10%) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: linear-gradient(to bottom right, black, transparent 70%);
+}
+
+.brand-mark {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 75%);
+  border-radius: 0.9rem;
+  color: white;
+  background: linear-gradient(145deg, #2563eb, #1d4ed8 55%, #0891b2);
+  box-shadow:
+    0 12px 28px -12px rgb(29 78 216 / 70%),
+    inset 0 1px 0 rgb(255 255 255 / 25%);
+}
+
+.text-gradient {
+  color: transparent;
+  background: linear-gradient(100deg, #1d4ed8, #2563eb 48%, #0891b2);
+  background-clip: text;
+}
+
+.workflow-step {
+  position: relative;
+  min-width: 0;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgb(226 232 240 / 90%);
+  border-radius: 0.8rem;
+  color: #334155;
+  background: rgb(248 250 252 / 75%);
+}
+
+.workflow-step-active {
+  border-color: #2563eb;
+  color: white;
+  background: linear-gradient(145deg, #2563eb, #1d4ed8);
+  box-shadow: 0 10px 24px -14px rgb(29 78 216 / 80%);
+}
+
+@keyframes auth-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.auth-enter {
+  animation: auth-enter 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.auth-enter-delayed {
+  animation-delay: 120ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-enter,
+  .auth-enter-delayed {
+    animation: none;
+  }
+}
