@@ -79,6 +79,24 @@ export async function signIn(
   )
 }
 
+export async function signOut(): Promise<void> {
+  const antiforgeryToken = await getAntiforgeryToken()
+  const response = await fetch('/api/auth/sign-out', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      Accept: 'application/json',
+      'X-CSRF-TOKEN': antiforgeryToken,
+    },
+  })
+
+  if (response.status !== 204 && response.status !== 401) {
+    throw new Error(
+      `Sign-out request failed with status ${response.status.toString()}.`,
+    )
+  }
+}
+
 async function getAntiforgeryToken(): Promise<string> {
   const response = await fetch('/api/auth/csrf', {
     credentials: 'same-origin',

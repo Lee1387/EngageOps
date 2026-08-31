@@ -21,6 +21,7 @@ services:
       dockerfile: src/backend/EngageOps.Api/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Development
+      Database__ApplyMigrationsOnStartup: true
       ConnectionStrings__Database: >-
         Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
     ports:

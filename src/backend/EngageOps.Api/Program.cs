@@ -88,6 +88,13 @@ builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
+if (app.Configuration.GetValue<bool>("Database:ApplyMigrationsOnStartup"))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var database = scope.ServiceProvider.GetRequiredService<EngageOpsDbContext>();
+    await database.Database.MigrateAsync();
+}
+
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseAuthentication();

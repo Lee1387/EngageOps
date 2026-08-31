@@ -1,7 +1,33 @@
+import { AppShell } from './components/AppShell'
 import { Wordmark } from './components/Wordmark'
 import { SessionStatus } from './features/auth/SessionStatus'
+import { useSession } from './features/auth/useSession'
 
 function App() {
+  const session = useSession()
+
+  if (session.isPending) {
+    return (
+      <main
+        className="grid min-h-screen place-items-center bg-canvas px-5"
+        aria-busy="true"
+      >
+        <div className="flex flex-col items-center" role="status">
+          <Wordmark />
+          <span
+            aria-hidden="true"
+            className="mt-6 size-7 animate-spin rounded-full border-3 border-blue-100 border-t-brand-700 motion-reduce:animate-none"
+          />
+          <p className="mt-3 text-sm text-muted">Checking your session…</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (session.data) {
+    return <AppShell session={session.data} />
+  }
+
   return (
     <main className="grid min-h-screen bg-canvas lg:place-items-center lg:p-8 xl:p-12">
       <div className="grid min-h-screen w-full overflow-hidden bg-surface lg:min-h-[calc(100vh-4rem)] lg:max-w-7xl lg:grid-cols-[0.94fr_1.06fr] lg:rounded-panel lg:shadow-panel xl:min-h-[calc(100vh-6rem)]">
@@ -35,7 +61,7 @@ function App() {
             <div className="mb-14 lg:hidden">
               <Wordmark />
             </div>
-            <SessionStatus />
+            <SessionStatus session={session} />
           </div>
         </section>
       </div>

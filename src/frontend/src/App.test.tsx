@@ -16,17 +16,15 @@ describe('App', () => {
 
     renderApp()
 
-    expect(
-      screen.getByText('Workforce operations, kept organised.'),
-    ).toBeInTheDocument()
-    expect(
-      screen.queryByRole('heading', {
-        name: 'Workforce operations, kept organised.',
-      }),
-    ).not.toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent(
       'Checking your session…',
     )
+    expect(
+      screen.queryByRole('heading', { name: 'Welcome back' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Welcome to EngageOps' }),
+    ).not.toBeInTheDocument()
   })
 
   it('shows sign-in for an unauthenticated session', async () => {
@@ -59,6 +57,10 @@ describe('App', () => {
     expect(
       await screen.findByText(/owner@northstar\.example/),
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Welcome to EngageOps' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeEnabled()
   })
 
   it('allows a failed session request to be retried', async () => {
@@ -116,6 +118,89 @@ describe('App', () => {
         password: 'ValidPassword1!',
       }),
     )
+  })
+
+  it('signs out and returns to the sign-in page', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(authenticatedSessionResponse())
+      .mockResolvedValueOnce(Response.json({ token: 'antiforgery-token' }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderApp()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Welcome back' }),
+    ).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/auth/sign-out',
+      expect.objectContaining({
+        credentials: 'same-origin',
+        method: 'POST',
+      }),
+    )
+    const signOutHeaders = new Headers(fetchMock.mock.calls[2]?.[1]?.headers)
+    expect(signOutHeaders.get('X-CSRF-TOKEN')).toBe('antiforgery-token')
+  })
+
+  it('returns to sign-in when the session has already expired at sign-out', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(authenticatedSessionResponse())
+      .mockResolvedValueOnce(Response.json({ token: 'antiforgery-token' }))
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderApp()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Welcome back' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('disables sign-out while the request is pending', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(authenticatedSessionResponse())
+      .mockResolvedValueOnce(Response.json({ token: 'antiforgery-token' }))
+      .mockReturnValueOnce(new Promise<Response>(() => undefined))
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderApp()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
+
+    expect(
+      await screen.findByRole('button', { name: 'Signing out…' }),
+    ).toBeDisabled()
+  })
+
+  it('keeps the authenticated shell available when sign-out fails', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(authenticatedSessionResponse())
+      .mockResolvedValueOnce(Response.json({ token: 'antiforgery-token' }))
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderApp()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'We couldn’t sign you out. Check your connection and try again.',
+    )
+    expect(
+      screen.getByRole('heading', { name: 'Welcome to EngageOps' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeEnabled()
   })
 })
 
