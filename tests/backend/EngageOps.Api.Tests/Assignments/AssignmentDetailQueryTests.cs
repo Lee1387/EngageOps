@@ -30,6 +30,7 @@ public class AssignmentDetailQueryTests
             worker.Id,
             new DateOnly(2026, 9, 1),
             new DateOnly(2027, 3, 31));
+        Assert.True(assignment.TryCancel());
 
         using (var scope = factory.Services.CreateScope())
         {
@@ -62,6 +63,7 @@ public class AssignmentDetailQueryTests
         Assert.Equal(worker.Name, found.Assignment.WorkerName);
         Assert.Equal(assignment.StartDate, found.Assignment.StartDate);
         Assert.Equal(assignment.EndDate, found.Assignment.EndDate);
+        Assert.Equal(AssignmentStatus.Cancelled, found.Assignment.Status);
     }
 
     [Fact]

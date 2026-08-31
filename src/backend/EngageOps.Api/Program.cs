@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using EngageOps.Api.Assignments;
 using EngageOps.Api.Clients;
 using EngageOps.Api.Identity;
@@ -33,6 +34,9 @@ builder.Services.AddAntiforgery(options =>
         : CookieSecurePolicy.Always;
 });
 builder.Services.AddProblemDetails();
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(
+        new JsonStringEnumConverter<AssignmentStatus>()));
 // Avoid environment-dependent exception details for malformed Minimal API request bodies.
 builder.Services.Configure<RouteHandlerOptions>(options =>
     options.ThrowOnBadRequest = false);
@@ -71,6 +75,7 @@ builder.Services.ConfigureApplicationCookie(options =>
             .ExecuteAsync(context.HttpContext);
     };
 });
+builder.Services.AddScoped<AssignmentCanceller>();
 builder.Services.AddScoped<AssignmentCreator>();
 builder.Services.AddScoped<AssignmentDetailQuery>();
 builder.Services.AddScoped<AssignmentListQuery>();

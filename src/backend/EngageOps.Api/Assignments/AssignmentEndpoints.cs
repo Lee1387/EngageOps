@@ -28,6 +28,11 @@ public static class AssignmentEndpoints
                 "/api/organisations/{organisationId:guid}/assignments",
                 CreateAssignmentAsync)
             .RequireAuthorization();
+
+        endpoints.MapPost(
+                "/api/organisations/{organisationId:guid}/assignments/{assignmentId:guid}/cancel",
+                CancelAssignmentAsync)
+            .RequireAuthorization();
     }
 
     private static async Task<IResult> GetAssignmentsAsync(
@@ -178,7 +183,8 @@ public static class AssignmentEndpoints
                     created.Assignment.ClientId,
                     created.Assignment.WorkerId,
                     created.Assignment.StartDate,
-                    created.Assignment.EndDate),
+                    created.Assignment.EndDate,
+                    created.Assignment.Status),
                 GetAssignmentRouteName,
                 new
                 {
@@ -193,6 +199,52 @@ public static class AssignmentEndpoints
                 "workerId",
                 "Worker was not found in this organisation."),
             _ => throw new InvalidOperationException("Unknown assignment creation result."),
+        };
+    }
+
+    private static async Task<IResult> CancelAssignmentAsync(
+        Guid organisationId,
+        Guid assignmentId,
+        HttpContext context,
+        ClaimsPrincipal principal,
+        IAntiforgery antiforgery,
+        UserManager<ApplicationUser> userManager,
+        AssignmentCanceller canceller,
+        CancellationToken cancellationToken)
+    {
+        context.Response.Headers.CacheControl = "no-store";
+
+        var antiforgeryError = await AntiforgeryValidation.ValidateAsync(context, antiforgery);
+        if (antiforgeryError is not null)
+        {
+            return antiforgeryError;
+        }
+
+        if (!Guid.TryParse(userManager.GetUserId(principal), out var userId))
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "Authentication is required.");
+        }
+
+        if (organisationId == Guid.Empty)
+        {
+            return OrganisationNotFound();
+        }
+
+        var result = await canceller.CancelAsync(
+            userId,
+            organisationId,
+            assignmentId,
+            cancellationToken);
+
+        return result switch
+        {
+            AssignmentCancellationResult.Cancelled => TypedResults.NoContent(),
+            AssignmentCancellationResult.AlreadyCancelled => TypedResults.NoContent(),
+            AssignmentCancellationResult.OrganisationNotFound => OrganisationNotFound(),
+            AssignmentCancellationResult.AssignmentNotFound => AssignmentNotFound(),
+            _ => throw new InvalidOperationException("Unknown assignment cancellation result."),
         };
     }
 
@@ -237,7 +289,8 @@ public static class AssignmentEndpoints
             assignment.WorkerId,
             assignment.WorkerName,
             assignment.StartDate,
-            assignment.EndDate);
+            assignment.EndDate,
+            assignment.Status);
 
     private static ProblemHttpResult OrganisationNotFound() =>
         TypedResults.Problem(
@@ -267,7 +320,8 @@ public static class AssignmentEndpoints
         Guid ClientId,
         Guid WorkerId,
         DateOnly StartDate,
-        DateOnly? EndDate);
+        DateOnly? EndDate,
+        AssignmentStatus Status);
 
     public sealed record AssignmentSummaryResponse(
         Guid Id,
@@ -277,7 +331,8 @@ public static class AssignmentEndpoints
         Guid WorkerId,
         string WorkerName,
         DateOnly StartDate,
-        DateOnly? EndDate);
+        DateOnly? EndDate,
+        AssignmentStatus Status);
 
     public sealed record AssignmentPageResponse(
         IReadOnlyList<AssignmentSummaryResponse> Items,

@@ -32,6 +32,11 @@ internal sealed class ApiTestClient : IDisposable
         CancellationToken cancellationToken) =>
         client.PostAsJsonAsync(path, body, cancellationToken);
 
+    public Task<HttpResponseMessage> PostAsync(
+        string path,
+        CancellationToken cancellationToken) =>
+        client.PostAsync(path, content: null, cancellationToken);
+
     public async Task SignInAsync(string email, CancellationToken cancellationToken)
     {
         var antiforgeryToken = await GetAntiforgeryTokenAsync(cancellationToken);
@@ -66,6 +71,17 @@ internal sealed class ApiTestClient : IDisposable
         {
             Content = JsonContent.Create(body),
         };
+        request.Headers.Add(AuthenticationEndpoints.AntiforgeryHeaderName, antiforgeryToken);
+
+        return await client.SendAsync(request, cancellationToken);
+    }
+
+    public async Task<HttpResponseMessage> PostWithAntiforgeryAsync(
+        string path,
+        string antiforgeryToken,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, path);
         request.Headers.Add(AuthenticationEndpoints.AntiforgeryHeaderName, antiforgeryToken);
 
         return await client.SendAsync(request, cancellationToken);

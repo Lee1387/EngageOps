@@ -59,6 +59,7 @@ public class AssignmentListEndpointTests
             worker.Id,
             new DateOnly(2026, 10, 1),
             new DateOnly(2027, 3, 31));
+        Assert.True(laterAssignment.TryCancel());
 
         using (var scope = factory.Services.CreateScope())
         {
@@ -287,6 +288,7 @@ public class AssignmentListEndpointTests
         Assert.Equal(workerName, item.WorkerName);
         Assert.Equal(assignment.StartDate, item.StartDate);
         Assert.Equal(assignment.EndDate, item.EndDate);
+        Assert.Equal(assignment.Status.ToString(), item.Status);
     }
 
     private sealed record AssignmentListItemResponse(
@@ -297,7 +299,8 @@ public class AssignmentListEndpointTests
         Guid WorkerId,
         string WorkerName,
         DateOnly StartDate,
-        DateOnly? EndDate);
+        DateOnly? EndDate,
+        string Status);
 
     private sealed record AssignmentPageResponse(
         IReadOnlyList<AssignmentListItemResponse> Items,

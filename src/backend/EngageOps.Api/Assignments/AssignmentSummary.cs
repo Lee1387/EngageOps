@@ -8,4 +8,5 @@ public sealed record AssignmentSummary(
     Guid WorkerId,
     string WorkerName,
     DateOnly StartDate,
-    DateOnly? EndDate);
+    DateOnly? EndDate,
+    AssignmentStatus Status);

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using EngageOps.Api.Assignments;
 using EngageOps.Api.Clients;
 using EngageOps.Api.Organisations;
 using EngageOps.Api.Persistence;
@@ -158,6 +159,7 @@ public class AssignmentEndpointTests
         Assert.Equal(worker.Id, created.WorkerId);
         Assert.Equal(validRequest.StartDate, created.StartDate);
         Assert.Equal(validRequest.EndDate, created.EndDate);
+        Assert.Equal("Confirmed", created.Status);
         Assert.NotNull(response.Headers.Location);
         Assert.Equal(
             $"/api/organisations/{organisation.Id}/assignments/{created.Id}",
@@ -180,6 +182,7 @@ public class AssignmentEndpointTests
             (persisted.Id, persisted.OrganisationId, persisted.ClientId, persisted.WorkerId));
         Assert.Equal(created.StartDate, persisted.StartDate);
         Assert.Equal(created.EndDate, persisted.EndDate);
+        Assert.Equal(AssignmentStatus.Confirmed, persisted.Status);
     }
 
     [Fact]
@@ -354,5 +357,6 @@ public class AssignmentEndpointTests
         Guid ClientId,
         Guid WorkerId,
         DateOnly StartDate,
-        DateOnly? EndDate);
+        DateOnly? EndDate,
+        string Status);
 }

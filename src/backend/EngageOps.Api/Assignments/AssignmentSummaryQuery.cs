@@ -24,5 +24,6 @@ internal static class AssignmentSummaryQuery
             assignment.WorkerId,
             worker.Name,
             assignment.StartDate,
-            assignment.EndDate);
+            assignment.EndDate,
+            assignment.Status);
 }

@@ -38,6 +38,7 @@ public class AssignmentListQueryTests
             worker.Id,
             new DateOnly(2026, 10, 1),
             new DateOnly(2027, 3, 31));
+        Assert.True(laterAssignment.TryCancel());
         var otherAssignment = Assignment.Create(
             otherOrganisation.Id,
             otherClient.Id,
@@ -216,5 +217,6 @@ public class AssignmentListQueryTests
         Assert.Equal(workerName, item.WorkerName);
         Assert.Equal(assignment.StartDate, item.StartDate);
         Assert.Equal(assignment.EndDate, item.EndDate);
+        Assert.Equal(assignment.Status, item.Status);
     }
 }

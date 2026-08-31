@@ -14,16 +14,16 @@ using static EngageOps.Api.Tests.Identity.IdentityTestData;
 
 namespace EngageOps.Api.Tests.Assignments;
 
-public class AssignmentDetailEndpointTests
+public class AssignmentCancellationEndpointTests
 {
     [Fact]
-    public async Task GetAssignmentRequiresAuthentication()
+    public async Task CancelAssignmentRequiresAuthentication()
     {
         using var factory = new EngageOpsApiFactory();
         using var client = ApiTestClient.Create(factory);
 
-        using var response = await client.GetAsync(
-            $"/api/organisations/{Guid.CreateVersion7()}/assignments/{Guid.CreateVersion7()}",
+        using var response = await client.PostAsync(
+            $"/api/organisations/{Guid.CreateVersion7()}/assignments/{Guid.CreateVersion7()}/cancel",
             TestContext.Current.CancellationToken);
 
         await AssertProblemAsync(
@@ -34,7 +34,7 @@ public class AssignmentDetailEndpointTests
     }
 
     [Fact]
-    public async Task GetAssignmentReturnsTenantAssignment()
+    public async Task CancelAssignmentRequiresAntiforgeryAndIsIdempotent()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var postgreSql = PostgreSqlTestDatabase.CreateContainer();
@@ -48,16 +48,13 @@ public class AssignmentDetailEndpointTests
             organisation.Id,
             clientRecord.Id,
             worker.Id,
-            new DateOnly(2026, 9, 1),
-            new DateOnly(2027, 3, 31));
-        Assert.True(assignment.TryCancel());
+            new DateOnly(2026, 9, 1));
 
         using (var scope = factory.Services.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<EngageOpsDbContext>();
             await context.Database.MigrateAsync(cancellationToken);
             var user = await CreateUserAsync(scope.ServiceProvider, "owner@northstar.example");
-
             context.AddRange(
                 organisation,
                 clientRecord,
@@ -69,30 +66,50 @@ public class AssignmentDetailEndpointTests
 
         using var client = ApiTestClient.Create(factory);
         await client.SignInAsync("owner@northstar.example", cancellationToken);
+        var path =
+            $"/api/organisations/{organisation.Id}/assignments/{assignment.Id}/cancel";
 
-        using var response = await client.GetAsync(
+        using (var missingAntiforgery = await client.PostAsync(path, cancellationToken))
+        {
+            await AssertProblemAsync(
+                missingAntiforgery,
+                HttpStatusCode.BadRequest,
+                "The antiforgery token is invalid.",
+                cancellationToken);
+        }
+
+        var antiforgeryToken = await client.GetAntiforgeryTokenAsync(cancellationToken);
+
+        using (var cancelled = await client.PostWithAntiforgeryAsync(
+            path,
+            antiforgeryToken,
+            cancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, cancelled.StatusCode);
+            Assert.Equal(true, cancelled.Headers.CacheControl?.NoStore);
+        }
+
+        using (var repeated = await client.PostWithAntiforgeryAsync(
+            path,
+            antiforgeryToken,
+            cancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, repeated.StatusCode);
+        }
+
+        using var detailResponse = await client.GetAsync(
             $"/api/organisations/{organisation.Id}/assignments/{assignment.Id}",
             cancellationToken);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(true, response.Headers.CacheControl?.NoStore);
-        var returned = await response.Content.ReadFromJsonAsync<AssignmentResponse>(
-            cancellationToken);
+        Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+        var returned = await detailResponse.Content
+            .ReadFromJsonAsync<AssignmentStatusResponse>(cancellationToken);
 
         Assert.NotNull(returned);
-        Assert.Equal(assignment.Id, returned.Id);
-        Assert.Equal(organisation.Id, returned.OrganisationId);
-        Assert.Equal(clientRecord.Id, returned.ClientId);
-        Assert.Equal(clientRecord.Name, returned.ClientName);
-        Assert.Equal(worker.Id, returned.WorkerId);
-        Assert.Equal(worker.Name, returned.WorkerName);
-        Assert.Equal(assignment.StartDate, returned.StartDate);
-        Assert.Equal(assignment.EndDate, returned.EndDate);
         Assert.Equal("Cancelled", returned.Status);
     }
 
     [Fact]
-    public async Task GetAssignmentDoesNotExposeOtherTenantsOrMissingResources()
+    public async Task CancelAssignmentHidesInaccessibleOrganisationsAndAssignments()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var postgreSql = PostgreSqlTestDatabase.CreateContainer();
@@ -114,7 +131,6 @@ public class AssignmentDetailEndpointTests
             var context = scope.ServiceProvider.GetRequiredService<EngageOpsDbContext>();
             await context.Database.MigrateAsync(cancellationToken);
             var user = await CreateUserAsync(scope.ServiceProvider, "owner@northstar.example");
-
             context.AddRange(
                 organisation,
                 otherOrganisation,
@@ -127,16 +143,37 @@ public class AssignmentDetailEndpointTests
 
         using var client = ApiTestClient.Create(factory);
         await client.SignInAsync("owner@northstar.example", cancellationToken);
+        var antiforgeryToken = await client.GetAntiforgeryTokenAsync(cancellationToken);
 
-        foreach (var assignmentId in new[]
+        foreach (var organisationId in new[]
         {
+            otherOrganisation.Id,
             Guid.CreateVersion7(),
-            otherAssignment.Id,
             Guid.Empty,
         })
         {
-            using var response = await client.GetAsync(
-                $"/api/organisations/{organisation.Id}/assignments/{assignmentId}",
+            using var response = await client.PostWithAntiforgeryAsync(
+                $"/api/organisations/{organisationId}/assignments/{otherAssignment.Id}/cancel",
+                antiforgeryToken,
+                cancellationToken);
+
+            await AssertProblemAsync(
+                response,
+                HttpStatusCode.NotFound,
+                "Organisation was not found.",
+                cancellationToken);
+        }
+
+        foreach (var assignmentId in new[]
+        {
+            otherAssignment.Id,
+            Guid.CreateVersion7(),
+            Guid.Empty,
+        })
+        {
+            using var response = await client.PostWithAntiforgeryAsync(
+                $"/api/organisations/{organisation.Id}/assignments/{assignmentId}/cancel",
+                antiforgeryToken,
                 cancellationToken);
 
             await AssertProblemAsync(
@@ -146,33 +183,15 @@ public class AssignmentDetailEndpointTests
                 cancellationToken);
         }
 
-        foreach (var organisationId in new[]
-        {
-            otherOrganisation.Id,
-            Guid.CreateVersion7(),
-            Guid.Empty,
-        })
-        {
-            using var response = await client.GetAsync(
-                $"/api/organisations/{organisationId}/assignments/{otherAssignment.Id}",
-                cancellationToken);
+        using var verificationScope = factory.Services.CreateScope();
+        var verificationContext = verificationScope.ServiceProvider
+            .GetRequiredService<EngageOpsDbContext>();
+        var persistedAssignment = await verificationContext.Assignments
+            .AsNoTracking()
+            .SingleAsync(cancellationToken);
 
-            await AssertProblemAsync(
-                response,
-                HttpStatusCode.NotFound,
-                "Organisation was not found.",
-                cancellationToken);
-        }
+        Assert.Equal(AssignmentStatus.Confirmed, persistedAssignment.Status);
     }
 
-    private sealed record AssignmentResponse(
-        Guid Id,
-        Guid OrganisationId,
-        Guid ClientId,
-        string ClientName,
-        Guid WorkerId,
-        string WorkerName,
-        DateOnly StartDate,
-        DateOnly? EndDate,
-        string Status);
+    private sealed record AssignmentStatusResponse(string Status);
 }
