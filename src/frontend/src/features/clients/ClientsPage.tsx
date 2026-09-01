@@ -214,10 +214,10 @@ function ClientList({
       {totalPages > 1 && (
         <nav
           aria-label="Client pages"
-          className="flex items-center justify-between gap-4 border-t border-line px-5 py-4 sm:px-6"
+          className="grid grid-cols-2 items-center gap-3 border-t border-line px-5 py-4 sm:flex sm:justify-between sm:gap-4 sm:px-6"
         >
           <button
-            className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-control border border-line bg-surface px-3.5 text-sm font-semibold text-ink transition-colors duration-200 hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-not-allowed disabled:text-muted"
+            className="row-start-2 inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-control border border-line bg-surface px-3.5 text-sm font-semibold text-ink transition-colors duration-200 hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-not-allowed disabled:text-muted sm:w-auto"
             type="button"
             disabled={clientPage.page === 1}
             onClick={onPreviousPage}
@@ -225,11 +225,11 @@ function ClientList({
             <FiChevronLeft aria-hidden="true" className="size-4" />
             Previous
           </button>
-          <p className="text-sm text-muted">
+          <p className="col-span-2 row-start-1 text-center text-sm whitespace-nowrap text-muted sm:col-auto sm:row-auto">
             Page {clientPage.page} of {totalPages}
           </p>
           <button
-            className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-control border border-line bg-surface px-3.5 text-sm font-semibold text-ink transition-colors duration-200 hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-not-allowed disabled:text-muted"
+            className="row-start-2 inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-control border border-line bg-surface px-3.5 text-sm font-semibold text-ink transition-colors duration-200 hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-not-allowed disabled:text-muted sm:w-auto"
             type="button"
             disabled={clientPage.page >= totalPages}
             onClick={onNextPage}

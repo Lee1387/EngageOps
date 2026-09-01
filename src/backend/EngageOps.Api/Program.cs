@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using System.Text.Json.Serialization;
 using EngageOps.Api.Assignments;
 using EngageOps.Api.Clients;
+using EngageOps.Api.DevelopmentData;
 using EngageOps.Api.Identity;
 using EngageOps.Api.Organisations;
 using EngageOps.Api.Persistence;
@@ -8,7 +10,13 @@ using EngageOps.Api.Workers;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
-var builder = WebApplication.CreateBuilder(args);
+var developmentDataAction = DevelopmentDataCommand.Parse(args);
+var builder = WebApplication.CreateBuilder(developmentDataAction is null ? args : []);
+
+if (developmentDataAction is not null)
+{
+    builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
+}
 
 var databaseConnectionString = builder.Configuration.GetConnectionString("Database")
     ?? throw new InvalidOperationException("The 'Database' connection string is required.");
@@ -81,12 +89,61 @@ builder.Services.AddScoped<AssignmentCreator>();
 builder.Services.AddScoped<AssignmentDetailQuery>();
 builder.Services.AddScoped<AssignmentListQuery>();
 builder.Services.AddScoped<ClientCreator>();
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.Configure<DevelopmentDataOptions>(
+        builder.Configuration.GetSection(DevelopmentDataOptions.SectionName));
+    builder.Services.AddScoped<DevelopmentDataSeeder>();
+}
+
 builder.Services.AddScoped<OrganisationMembershipChecker>();
 builder.Services.AddScoped<OrganisationProvisioner>();
 builder.Services.AddScoped<WorkerCreator>();
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
+if (developmentDataAction is not null)
+{
+    if (!app.Environment.IsDevelopment())
+    {
+        throw new InvalidOperationException(
+            "Development data commands can only run in the Development environment.");
+    }
+
+    await using var scope = app.Services.CreateAsyncScope();
+    var database = scope.ServiceProvider.GetRequiredService<EngageOpsDbContext>();
+    await database.Database.MigrateAsync();
+    var seeder = scope.ServiceProvider.GetRequiredService<DevelopmentDataSeeder>();
+
+    switch (developmentDataAction)
+    {
+        case DevelopmentDataAction.Seed:
+            var seedResult = await seeder.SeedAsync(CancellationToken.None);
+            DevelopmentDataLog.SeedReady(
+                app.Logger,
+                seedResult.Email,
+                seedResult.OrganisationName,
+                seedResult.AddedClientCount,
+                seedResult.TotalClientCount);
+            break;
+
+        case DevelopmentDataAction.Reset:
+            var resetResult = await seeder.ResetAsync(CancellationToken.None);
+            DevelopmentDataLog.ResetCompleted(
+                app.Logger,
+                resetResult.OrganisationCount,
+                resetResult.ClientCount,
+                resetResult.WorkerCount,
+                resetResult.AssignmentCount);
+            break;
+
+        default:
+            throw new UnreachableException();
+    }
+
+    return;
+}
 
 if (app.Configuration.GetValue<bool>("Database:ApplyMigrationsOnStartup"))
 {

@@ -22,6 +22,9 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       Database__ApplyMigrationsOnStartup: true
+      DevelopmentData__Email: ${DEVELOPMENT_DATA_EMAIL:-demo@engageops.local}
+      DevelopmentData__OrganisationName: ${DEVELOPMENT_DATA_ORGANISATION:-Northstar Demo Workforce}
+      DevelopmentData__Password: ${DEVELOPMENT_DATA_PASSWORD:-LocalDevelopment1!}
       ConnectionStrings__Database: >-
         Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
     ports:
