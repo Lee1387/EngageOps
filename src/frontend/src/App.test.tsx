@@ -62,7 +62,7 @@ describe('App', () => {
       await screen.findByText(/owner@northstar\.example/),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: 'Organisations' }),
+      await screen.findByRole('heading', { name: 'Organisations' }),
     ).toBeInTheDocument()
     expect(await screen.findByText('Northstar Workforce')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Organisations' })).toHaveAttribute(
@@ -70,6 +70,33 @@ describe('App', () => {
       'page',
     )
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeEnabled()
+  })
+
+  it('opens the selected organisations client workspace', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(authenticatedSessionResponse())
+      .mockResolvedValueOnce(organisationsResponse())
+      .mockResolvedValueOnce(organisationsResponse())
+      .mockResolvedValueOnce(clientsResponse())
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderApp()
+
+    fireEvent.click(
+      await screen.findByRole('link', {
+        name: 'View clients for Northstar Workforce',
+      }),
+    )
+
+    expect(
+      await screen.findByRole('heading', { name: 'Clients' }),
+    ).toBeInTheDocument()
+    expect(await screen.findByText('Acme Operations')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Clients' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
   })
 
   it('allows a failed session request to be retried', async () => {
@@ -110,6 +137,27 @@ describe('App', () => {
     ).toBeInTheDocument()
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
+      '/api/auth/session',
+      expect.objectContaining({ credentials: 'same-origin' }),
+    )
+  })
+
+  it('returns to sign-in when loading clients finds an expired session', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(authenticatedSessionResponse())
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderApp(['/organisations/01990db2-4a3f-7d35-a2bd-6b69ac9c75be/clients'])
+
+    expect(
+      await screen.findByRole('heading', { name: 'Welcome back' }),
+    ).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
       '/api/auth/session',
       expect.objectContaining({ credentials: 'same-origin' }),
     )
@@ -244,10 +292,10 @@ describe('App', () => {
   })
 })
 
-function renderApp() {
+function renderApp(initialEntries = ['/']) {
   return render(
     <TestQueryClientProvider>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={initialEntries}>
         <App />
       </MemoryRouter>
     </TestQueryClientProvider>,
@@ -279,4 +327,19 @@ function organisationsResponse() {
       name: 'Northstar Workforce',
     },
   ])
+}
+
+function clientsResponse() {
+  return Response.json({
+    items: [
+      {
+        id: '01990db2-4a3f-7d35-a2bd-6b69ac9c75bf',
+        organisationId: '01990db2-4a3f-7d35-a2bd-6b69ac9c75be',
+        name: 'Acme Operations',
+      },
+    ],
+    page: 1,
+    pageSize: 20,
+    totalCount: 1,
+  })
 }

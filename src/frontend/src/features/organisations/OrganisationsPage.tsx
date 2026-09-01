@@ -1,4 +1,10 @@
-import { FiAlertCircle, FiBriefcase, FiRefreshCw } from 'react-icons/fi'
+import {
+  FiAlertCircle,
+  FiBriefcase,
+  FiChevronRight,
+  FiRefreshCw,
+} from 'react-icons/fi'
+import { Link } from 'react-router'
 import { useOrganisations } from './useOrganisations'
 
 interface OrganisationsPageProps {
@@ -55,9 +61,11 @@ export function OrganisationsPage({ userId }: OrganisationsPageProps) {
           </div>
         )}
 
-        {organisations.data?.length === 0 && <OrganisationsEmpty />}
+        {organisations.isSuccess && organisations.data.length === 0 && (
+          <OrganisationsEmpty />
+        )}
 
-        {organisations.data && organisations.data.length > 0 && (
+        {organisations.isSuccess && organisations.data.length > 0 && (
           <div className="overflow-hidden rounded-panel border border-line bg-surface shadow-panel">
             <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-4 sm:px-6">
               <h2 className="text-sm font-semibold text-ink">
@@ -69,19 +77,26 @@ export function OrganisationsPage({ userId }: OrganisationsPageProps) {
             </div>
             <ul aria-label="Organisations" className="divide-y divide-line">
               {organisations.data.map((organisation) => (
-                <li
-                  className="flex items-center gap-4 px-5 py-5 sm:px-6"
-                  key={organisation.id}
-                >
-                  <span className="grid size-11 shrink-0 place-items-center rounded-control bg-blue-50 text-brand-700">
-                    <FiBriefcase aria-hidden="true" className="size-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-base font-semibold text-ink">
-                      {organisation.name}
-                    </p>
-                    <p className="mt-1 text-sm text-muted">Organisation</p>
-                  </div>
+                <li key={organisation.id}>
+                  <Link
+                    aria-label={`View clients for ${organisation.name}`}
+                    className="group flex min-h-20 items-center gap-4 px-5 py-4 transition-colors duration-200 hover:bg-slate-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-700 sm:px-6"
+                    to={`/organisations/${encodeURIComponent(organisation.id)}/clients`}
+                  >
+                    <span className="grid size-11 shrink-0 place-items-center rounded-control bg-blue-50 text-brand-700 transition-colors duration-200 group-hover:bg-blue-100">
+                      <FiBriefcase aria-hidden="true" className="size-5" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-base font-semibold text-ink">
+                        {organisation.name}
+                      </p>
+                      <p className="mt-1 text-sm text-muted">View clients</p>
+                    </div>
+                    <FiChevronRight
+                      aria-hidden="true"
+                      className="size-5 shrink-0 text-slate-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand-700 motion-reduce:transform-none"
+                    />
+                  </Link>
                 </li>
               ))}
             </ul>

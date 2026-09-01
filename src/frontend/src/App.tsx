@@ -3,6 +3,7 @@ import { AppShell } from './components/AppShell'
 import { Wordmark } from './components/Wordmark'
 import { SessionStatus } from './features/auth/SessionStatus'
 import { useSession } from './features/auth/useSession'
+import { ClientsPage } from './features/clients/ClientsPage'
 import { OrganisationsPage } from './features/organisations/OrganisationsPage'
 
 function App() {
@@ -34,6 +35,10 @@ function App() {
           <Route
             path="organisations"
             element={<OrganisationsPage userId={session.data.userId} />}
+          />
+          <Route
+            path="organisations/:organisationId/clients"
+            element={<ClientsPage userId={session.data.userId} />}
           />
           <Route path="*" element={<Navigate replace to="/organisations" />} />
         </Route>

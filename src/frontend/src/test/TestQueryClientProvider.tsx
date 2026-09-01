@@ -1,12 +1,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState, type PropsWithChildren } from 'react'
+import { createTestQueryClient } from './createTestQueryClient'
 
-export function TestQueryClientProvider({ children }: PropsWithChildren) {
+interface TestQueryClientProviderProps extends PropsWithChildren {
+  client?: QueryClient
+}
+
+export function TestQueryClientProvider({
+  children,
+  client: providedClient,
+}: TestQueryClientProviderProps) {
   const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: { queries: { retry: false } },
-      }),
+    () => providedClient ?? createTestQueryClient(),
   )
 
   return (

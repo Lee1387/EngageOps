@@ -1,5 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestQueryClient } from '../../test/createTestQueryClient'
 import { TestQueryClientProvider } from '../../test/TestQueryClientProvider'
 import { OrganisationsPage } from './OrganisationsPage'
 
@@ -45,6 +47,12 @@ describe('OrganisationsPage', () => {
     expect(
       screen.getByRole('list', { name: 'Organisations' }),
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'View clients for Alpha Staffing' }),
+    ).toHaveAttribute(
+      'href',
+      '/organisations/01990db2-4a3f-7d35-a2bd-6b69ac9c75be/clients',
+    )
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/organisations',
       expect.objectContaining({
@@ -91,7 +99,9 @@ describe('OrganisationsPage', () => {
 
     page.rerender(
       <TestQueryClientProvider>
-        <OrganisationsPage userId="01990db2-4a3f-7d35-a2bd-6b69ac9c75c0" />
+        <MemoryRouter>
+          <OrganisationsPage userId="01990db2-4a3f-7d35-a2bd-6b69ac9c75c0" />
+        </MemoryRouter>
       </TestQueryClientProvider>,
     )
 
@@ -121,12 +131,42 @@ describe('OrganisationsPage', () => {
     ).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
+
+  it('does not show cached organisations when a refetch fails', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json([
+          {
+            id: '01990db2-4a3f-7d35-a2bd-6b69ac9c75be',
+            name: 'Alpha Staffing',
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const queryClient = createTestQueryClient()
+
+    renderPage(queryClient)
+    expect(await screen.findByText('Alpha Staffing')).toBeInTheDocument()
+
+    await act(async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['organisations', userId],
+      })
+    })
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(screen.queryByText('Alpha Staffing')).not.toBeInTheDocument()
+  })
 })
 
-function renderPage() {
+function renderPage(client = createTestQueryClient()) {
   return render(
-    <TestQueryClientProvider>
-      <OrganisationsPage userId={userId} />
+    <TestQueryClientProvider client={client}>
+      <MemoryRouter>
+        <OrganisationsPage userId={userId} />
+      </MemoryRouter>
     </TestQueryClientProvider>,
   )
 }
