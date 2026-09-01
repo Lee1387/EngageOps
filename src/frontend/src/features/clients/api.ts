@@ -1,7 +1,10 @@
+import { getAntiforgeryToken } from '../../lib/antiforgery'
 import { HttpError } from '../../lib/http'
 import { isRecord } from '../../lib/json'
+import { getValidationProblemFieldErrors } from '../../lib/validationProblem'
 
 export const clientsPageSize = 20
+export const clientNameMaxLength = 200
 
 export interface ClientSummary {
   id: string
@@ -15,6 +18,14 @@ export interface ClientPage {
   pageSize: number
   totalCount: number
 }
+
+interface CreateClientValidationErrors {
+  name?: string[]
+}
+
+export type CreateClientResult =
+  | { outcome: 'created'; client: ClientSummary }
+  | { outcome: 'invalidInput'; errors: CreateClientValidationErrors }
 
 export async function getClients(
   organisationId: string,
@@ -47,6 +58,48 @@ export async function getClients(
   }
 
   return clientPage
+}
+
+export async function createClient(
+  organisationId: string,
+  name: string,
+): Promise<CreateClientResult> {
+  const antiforgeryToken = await getAntiforgeryToken()
+  const response = await fetch(
+    `/api/organisations/${encodeURIComponent(organisationId)}/clients`,
+    {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': antiforgeryToken,
+      },
+      body: JSON.stringify({ name }),
+    },
+  )
+
+  if (response.status === 201) {
+    const client: unknown = await response.json()
+    if (!isClientSummary(client, organisationId)) {
+      throw new Error('Create client response was invalid.')
+    }
+
+    return { outcome: 'created', client }
+  }
+
+  if (response.status === 400) {
+    const responseBody: unknown = await response.json()
+    const nameErrors = getValidationProblemFieldErrors(responseBody, 'name')
+    if (nameErrors) {
+      return { outcome: 'invalidInput', errors: { name: nameErrors } }
+    }
+  }
+
+  throw new HttpError(
+    `Create client request failed with status ${response.status.toString()}.`,
+    response.status,
+  )
 }
 
 function isClientPage(

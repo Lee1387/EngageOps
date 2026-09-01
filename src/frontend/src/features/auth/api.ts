@@ -1,4 +1,6 @@
 import { isRecord } from '../../lib/json'
+import { getAntiforgeryToken } from '../../lib/antiforgery'
+import { getValidationProblemFieldErrors } from '../../lib/validationProblem'
 
 export interface Session {
   userId: string
@@ -99,36 +101,15 @@ export async function signOut(): Promise<void> {
   }
 }
 
-async function getAntiforgeryToken(): Promise<string> {
-  const response = await fetch('/api/auth/csrf', {
-    credentials: 'same-origin',
-    headers: { Accept: 'application/json' },
-  })
-
-  if (!response.ok) {
-    throw new Error(
-      `Antiforgery request failed with status ${response.status.toString()}.`,
-    )
-  }
-
-  const responseBody: unknown = await response.json()
-  if (!isRecord(responseBody) || typeof responseBody.token !== 'string') {
-    throw new Error('Antiforgery response was invalid.')
-  }
-
-  return responseBody.token
-}
-
 function getSignInValidationErrors(
   responseBody: unknown,
 ): SignInValidationErrors | null {
-  if (!isRecord(responseBody) || !isRecord(responseBody.errors)) {
-    return null
-  }
-
   const errors: SignInValidationErrors = {}
-  const emailErrors = getStringArray(responseBody.errors, 'email')
-  const passwordErrors = getStringArray(responseBody.errors, 'password')
+  const emailErrors = getValidationProblemFieldErrors(responseBody, 'email')
+  const passwordErrors = getValidationProblemFieldErrors(
+    responseBody,
+    'password',
+  )
 
   if (emailErrors) {
     errors.email = emailErrors
@@ -140,20 +121,6 @@ function getSignInValidationErrors(
 
   return emailErrors || passwordErrors ? errors : null
 }
-
-function getStringArray(
-  value: Record<string, unknown>,
-  propertyName: string,
-): string[] | null {
-  const propertyValue = value[propertyName]
-
-  return Array.isArray(propertyValue) &&
-    propertyValue.length > 0 &&
-    propertyValue.every((item) => typeof item === 'string')
-    ? propertyValue
-    : null
-}
-
 function isSession(value: unknown): value is Session {
   return (
     isRecord(value) &&

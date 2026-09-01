@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   FiAlertCircle,
+  FiCheckCircle,
   FiChevronLeft,
   FiChevronRight,
+  FiPlus,
   FiRefreshCw,
   FiUsers,
 } from 'react-icons/fi'
@@ -10,7 +12,8 @@ import { Link, Navigate, useParams } from 'react-router'
 import { HttpError } from '../../lib/http'
 import { OrganisationBreadcrumb } from '../organisations/OrganisationBreadcrumb'
 import { useOrganisations } from '../organisations/useOrganisations'
-import { clientsPageSize, type ClientPage } from './api'
+import { clientsPageSize, type ClientPage, type ClientSummary } from './api'
+import { ClientCreationForm } from './ClientCreationForm'
 import { useClients } from './useClients'
 
 interface ClientsPageProps {
@@ -38,6 +41,10 @@ interface ClientsContentProps {
 
 function ClientsContent({ userId, organisationId }: ClientsContentProps) {
   const [page, setPage] = useState(1)
+  const [isCreating, setIsCreating] = useState(false)
+  const [successMessage, setSuccessMessage] = useState<string>()
+  const addClientButton = useRef<HTMLButtonElement>(null)
+  const shouldRestoreAddClientFocus = useRef(false)
   const organisations = useOrganisations(userId)
   const clients = useClients(userId, organisationId, page)
   const organisation = organisations.isSuccess
@@ -49,6 +56,23 @@ function ClientsContent({ userId, organisationId }: ClientsContentProps) {
   const organisationUnavailable =
     clients.error instanceof HttpError && clients.error.status === 404
 
+  useEffect(() => {
+    if (!isCreating && shouldRestoreAddClientFocus.current) {
+      addClientButton.current?.focus()
+      shouldRestoreAddClientFocus.current = false
+    }
+  }, [isCreating])
+
+  function closeCreationForm() {
+    shouldRestoreAddClientFocus.current = true
+    setIsCreating(false)
+  }
+
+  function handleClientCreated(client: ClientSummary) {
+    setSuccessMessage(`${client.name} was added.`)
+    closeCreationForm()
+  }
+
   return (
     <section aria-labelledby="clients-heading">
       <OrganisationBreadcrumb
@@ -56,22 +80,61 @@ function ClientsContent({ userId, organisationId }: ClientsContentProps) {
         organisationName={organisation?.name}
       />
 
-      <div className="mt-5">
-        <p className="text-xs font-semibold tracking-[0.12em] text-brand-700 uppercase">
-          {organisation?.name ?? 'Organisation'}
-        </p>
-        <h1
-          className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-ink sm:text-4xl"
-          id="clients-heading"
-        >
-          Clients
-        </h1>
-        <p className="mt-4 max-w-2xl text-base leading-7 text-muted">
-          {organisation
-            ? `View the clients managed by ${organisation.name}.`
-            : 'View the clients managed by this organisation.'}
-        </p>
+      <div className="mt-5 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold tracking-[0.12em] text-brand-700 uppercase">
+            {organisation?.name ?? 'Organisation'}
+          </p>
+          <h1
+            className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-ink sm:text-4xl"
+            id="clients-heading"
+          >
+            Clients
+          </h1>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-muted">
+            {organisation
+              ? `View the clients managed by ${organisation.name}.`
+              : 'View the clients managed by this organisation.'}
+          </p>
+        </div>
+
+        {clients.isSuccess && !isCreating && (
+          <button
+            className="button-primary min-h-11 w-full shrink-0 px-5 sm:w-auto"
+            type="button"
+            ref={addClientButton}
+            onClick={() => {
+              setSuccessMessage(undefined)
+              setIsCreating(true)
+            }}
+          >
+            <FiPlus aria-hidden="true" className="size-4" />
+            Add client
+          </button>
+        )}
       </div>
+
+      {isCreating && clients.isSuccess && (
+        <div className="mt-8">
+          <ClientCreationForm
+            organisationId={organisationId}
+            organisationName={organisation?.name}
+            userId={userId}
+            onCancel={closeCreationForm}
+            onCreated={handleClientCreated}
+          />
+        </div>
+      )}
+
+      {successMessage && (
+        <p
+          className="mt-8 flex items-center gap-2 rounded-control border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          role="status"
+        >
+          <FiCheckCircle aria-hidden="true" className="size-4 shrink-0" />
+          {successMessage}
+        </p>
+      )}
 
       <div className="mt-8 sm:mt-10">
         {clients.isPending && <ClientsLoading />}

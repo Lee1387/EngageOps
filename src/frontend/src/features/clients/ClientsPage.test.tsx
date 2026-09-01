@@ -97,6 +97,80 @@ describe('ClientsPage', () => {
     ).toBeInTheDocument()
   })
 
+  it('returns focus to Add client when creation is cancelled', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(organisationsResponse())
+        .mockResolvedValueOnce(clientPageResponse([])),
+    )
+
+    renderPage()
+    expect(
+      await screen.findByRole('heading', { name: 'No clients yet' }),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add client' }))
+    expect(screen.getByLabelText('Client name')).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(
+      screen.queryByRole('form', { name: 'Add client' }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add client' })).toHaveFocus()
+  })
+
+  it('adds a client and refreshes the organisation client list', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(organisationsResponse())
+      .mockResolvedValueOnce(clientPageResponse([]))
+      .mockResolvedValueOnce(Response.json({ token: 'antiforgery-token' }))
+      .mockResolvedValueOnce(createdClientResponse('Acme Operations'))
+      .mockResolvedValueOnce(clientPageResponse(['Acme Operations']))
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderPage()
+    expect(
+      await screen.findByRole('heading', { name: 'No clients yet' }),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add client' }))
+    expect(screen.getByLabelText('Client name')).toHaveFocus()
+    fireEvent.change(screen.getByLabelText('Client name'), {
+      target: { value: '  Acme Operations  ' },
+    })
+    fireEvent.submit(screen.getByRole('form', { name: 'Add client' }))
+
+    expect(await screen.findByText('Acme Operations was added.')).toBeVisible()
+    expect(await screen.findByText('Acme Operations')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('form', { name: 'Add client' }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add client' })).toHaveFocus()
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      `/api/organisations/${organisationId}/clients`,
+      {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': 'antiforgery-token',
+        },
+        body: JSON.stringify({ name: 'Acme Operations' }),
+      },
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      5,
+      `/api/organisations/${organisationId}/clients?page=1&pageSize=20`,
+      expect.any(Object),
+    )
+  })
+
   it('does not expose whether an unavailable organisation exists', async () => {
     vi.stubGlobal(
       'fetch',
@@ -235,4 +309,15 @@ function organisationsResponse() {
       name: 'Northstar Workforce',
     },
   ])
+}
+
+function createdClientResponse(name: string) {
+  return Response.json(
+    {
+      id: '01990db2-4a3f-7d35-a2bd-6b69ac9c7601',
+      organisationId,
+      name,
+    },
+    { status: 201 },
+  )
 }

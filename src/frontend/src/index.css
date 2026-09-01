@@ -228,6 +228,18 @@ input {
   }
 }
 
+@keyframes inline-form-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .auth-brand-enter,
 .auth-form-enter {
   animation: auth-reveal 220ms ease-out both;
@@ -239,6 +251,10 @@ input {
 
 .field-error {
   animation: error-reveal 180ms ease-out both;
+}
+
+.inline-form-enter {
+  animation: inline-form-reveal 180ms ease-out both;
 }
 
 .auth-error-region {
@@ -266,7 +282,8 @@ input {
   .auth-brand-beam,
   .auth-brand-enter,
   .auth-form-enter,
-  .field-error {
+  .field-error,
+  .inline-form-enter {
     animation: none;
   }
 

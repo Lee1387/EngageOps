@@ -163,6 +163,38 @@ describe('App', () => {
     )
   })
 
+  it('returns to sign-in when the session expires while adding a client', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(authenticatedSessionResponse())
+      .mockResolvedValueOnce(organisationsResponse())
+      .mockResolvedValueOnce(clientsResponse([]))
+      .mockResolvedValueOnce(Response.json({ token: 'antiforgery-token' }))
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderApp(['/organisations/01990db2-4a3f-7d35-a2bd-6b69ac9c75be/clients'])
+    expect(
+      await screen.findByRole('heading', { name: 'No clients yet' }),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add client' }))
+    fireEvent.change(screen.getByLabelText('Client name'), {
+      target: { value: 'Acme Operations' },
+    })
+    fireEvent.submit(screen.getByRole('form', { name: 'Add client' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Welcome back' }),
+    ).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      6,
+      '/api/auth/session',
+      expect.objectContaining({ credentials: 'same-origin' }),
+    )
+  })
+
   it('transitions to the authenticated state after sign-in', async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
@@ -329,17 +361,15 @@ function organisationsResponse() {
   ])
 }
 
-function clientsResponse() {
+function clientsResponse(names = ['Acme Operations']) {
   return Response.json({
-    items: [
-      {
-        id: '01990db2-4a3f-7d35-a2bd-6b69ac9c75bf',
-        organisationId: '01990db2-4a3f-7d35-a2bd-6b69ac9c75be',
-        name: 'Acme Operations',
-      },
-    ],
+    items: names.map((name, index) => ({
+      id: `01990db2-4a3f-7d35-a2bd-6b69ac9c7${(600 + index).toString()}`,
+      organisationId: '01990db2-4a3f-7d35-a2bd-6b69ac9c75be',
+      name,
+    })),
     page: 1,
     pageSize: 20,
-    totalCount: 1,
+    totalCount: names.length,
   })
 }
