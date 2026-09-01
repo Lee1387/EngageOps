@@ -1,3 +1,5 @@
+import { isRecord } from '../../lib/json'
+
 export interface Session {
   userId: string
   email: string | null
@@ -158,8 +160,4 @@ function isSession(value: unknown): value is Session {
     typeof value.userId === 'string' &&
     (typeof value.email === 'string' || value.email === null)
   )
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
 }

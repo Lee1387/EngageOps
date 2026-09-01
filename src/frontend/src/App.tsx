@@ -1,7 +1,9 @@
+import { Navigate, Route, Routes } from 'react-router'
 import { AppShell } from './components/AppShell'
 import { Wordmark } from './components/Wordmark'
 import { SessionStatus } from './features/auth/SessionStatus'
 import { useSession } from './features/auth/useSession'
+import { OrganisationsPage } from './features/organisations/OrganisationsPage'
 
 function App() {
   const session = useSession()
@@ -25,7 +27,18 @@ function App() {
   }
 
   if (session.data) {
-    return <AppShell session={session.data} />
+    return (
+      <Routes>
+        <Route element={<AppShell session={session.data} />}>
+          <Route index element={<Navigate replace to="/organisations" />} />
+          <Route
+            path="organisations"
+            element={<OrganisationsPage userId={session.data.userId} />}
+          />
+          <Route path="*" element={<Navigate replace to="/organisations" />} />
+        </Route>
+      </Routes>
+    )
   }
 
   return (

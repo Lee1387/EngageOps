@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { TestQueryClientProvider } from './test/TestQueryClientProvider'
@@ -49,7 +50,10 @@ describe('App', () => {
   it('shows the authenticated account email', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn<typeof fetch>().mockResolvedValue(authenticatedSessionResponse()),
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(authenticatedSessionResponse())
+        .mockResolvedValueOnce(organisationsResponse()),
     )
 
     renderApp()
@@ -58,8 +62,13 @@ describe('App', () => {
       await screen.findByText(/owner@northstar\.example/),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: 'Welcome to EngageOps' }),
+      screen.getByRole('heading', { name: 'Organisations' }),
     ).toBeInTheDocument()
+    expect(await screen.findByText('Northstar Workforce')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Organisations' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeEnabled()
   })
 
@@ -68,6 +77,7 @@ describe('App', () => {
       .fn<typeof fetch>()
       .mockResolvedValueOnce(new Response(null, { status: 503 }))
       .mockResolvedValueOnce(authenticatedSessionResponse())
+      .mockResolvedValueOnce(organisationsResponse())
     vi.stubGlobal('fetch', fetchMock)
 
     renderApp()
@@ -81,7 +91,28 @@ describe('App', () => {
     expect(
       await screen.findByText(/owner@northstar\.example/),
     ).toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(await screen.findByText('Northstar Workforce')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('returns to sign-in when loading organisations finds an expired session', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(authenticatedSessionResponse())
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderApp()
+
+    expect(
+      await screen.findByRole('heading', { name: 'Welcome back' }),
+    ).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/auth/session',
+      expect.objectContaining({ credentials: 'same-origin' }),
+    )
   })
 
   it('transitions to the authenticated state after sign-in', async () => {
@@ -91,6 +122,7 @@ describe('App', () => {
       .mockResolvedValueOnce(Response.json({ token: 'antiforgery-token' }))
       .mockResolvedValueOnce(new Response(null, { status: 204 }))
       .mockResolvedValueOnce(authenticatedSessionResponse())
+      .mockResolvedValueOnce(organisationsResponse())
     vi.stubGlobal('fetch', fetchMock)
 
     renderApp()
@@ -124,26 +156,28 @@ describe('App', () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(authenticatedSessionResponse())
+      .mockResolvedValueOnce(organisationsResponse())
       .mockResolvedValueOnce(Response.json({ token: 'antiforgery-token' }))
       .mockResolvedValueOnce(new Response(null, { status: 204 }))
     vi.stubGlobal('fetch', fetchMock)
 
     renderApp()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
+    await screen.findByText('Northstar Workforce')
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
 
     expect(
       await screen.findByRole('heading', { name: 'Welcome back' }),
     ).toBeInTheDocument()
     expect(fetchMock).toHaveBeenNthCalledWith(
-      3,
+      4,
       '/api/auth/sign-out',
       expect.objectContaining({
         credentials: 'same-origin',
         method: 'POST',
       }),
     )
-    const signOutHeaders = new Headers(fetchMock.mock.calls[2]?.[1]?.headers)
+    const signOutHeaders = new Headers(fetchMock.mock.calls[3]?.[1]?.headers)
     expect(signOutHeaders.get('X-CSRF-TOKEN')).toBe('antiforgery-token')
   })
 
@@ -151,13 +185,15 @@ describe('App', () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(authenticatedSessionResponse())
+      .mockResolvedValueOnce(organisationsResponse())
       .mockResolvedValueOnce(Response.json({ token: 'antiforgery-token' }))
       .mockResolvedValueOnce(new Response(null, { status: 401 }))
     vi.stubGlobal('fetch', fetchMock)
 
     renderApp()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
+    await screen.findByText('Northstar Workforce')
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
 
     expect(
       await screen.findByRole('heading', { name: 'Welcome back' }),
@@ -169,13 +205,15 @@ describe('App', () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(authenticatedSessionResponse())
+      .mockResolvedValueOnce(organisationsResponse())
       .mockResolvedValueOnce(Response.json({ token: 'antiforgery-token' }))
       .mockReturnValueOnce(new Promise<Response>(() => undefined))
     vi.stubGlobal('fetch', fetchMock)
 
     renderApp()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
+    await screen.findByText('Northstar Workforce')
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
 
     expect(
       await screen.findByRole('button', { name: 'Signing out…' }),
@@ -186,19 +224,21 @@ describe('App', () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(authenticatedSessionResponse())
+      .mockResolvedValueOnce(organisationsResponse())
       .mockResolvedValueOnce(Response.json({ token: 'antiforgery-token' }))
       .mockResolvedValueOnce(new Response(null, { status: 503 }))
     vi.stubGlobal('fetch', fetchMock)
 
     renderApp()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
+    await screen.findByText('Northstar Workforce')
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'We couldn’t sign you out. Check your connection and try again.',
     )
     expect(
-      screen.getByRole('heading', { name: 'Welcome to EngageOps' }),
+      screen.getByRole('heading', { name: 'Organisations' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeEnabled()
   })
@@ -207,7 +247,9 @@ describe('App', () => {
 function renderApp() {
   return render(
     <TestQueryClientProvider>
-      <App />
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>
     </TestQueryClientProvider>,
   )
 }
@@ -228,4 +270,13 @@ function authenticatedSessionResponse() {
     userId: '01990db2-4a3f-7d35-a2bd-6b69ac9c75bd',
     email: 'owner@northstar.example',
   })
+}
+
+function organisationsResponse() {
+  return Response.json([
+    {
+      id: '01990db2-4a3f-7d35-a2bd-6b69ac9c75be',
+      name: 'Northstar Workforce',
+    },
+  ])
 }
