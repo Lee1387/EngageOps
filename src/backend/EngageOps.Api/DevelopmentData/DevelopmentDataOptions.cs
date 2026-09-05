@@ -6,7 +6,5 @@ public sealed class DevelopmentDataOptions
 
     public string Email { get; init; } = string.Empty;
 
-    public string OrganisationName { get; init; } = string.Empty;
-
     public string Password { get; init; } = string.Empty;
 }

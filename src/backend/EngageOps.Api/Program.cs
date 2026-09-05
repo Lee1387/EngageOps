@@ -120,12 +120,15 @@ if (developmentDataAction is not null)
     {
         case DevelopmentDataAction.Seed:
             var seedResult = await seeder.SeedAsync(CancellationToken.None);
-            DevelopmentDataLog.SeedReady(
-                app.Logger,
-                seedResult.Email,
-                seedResult.OrganisationName,
-                seedResult.AddedClientCount,
-                seedResult.TotalClientCount);
+            foreach (var organisation in seedResult.Organisations)
+            {
+                DevelopmentDataLog.SeedReady(
+                    app.Logger,
+                    seedResult.Email,
+                    organisation.Name,
+                    organisation.AddedClientCount,
+                    organisation.TotalClientCount);
+            }
             break;
 
         case DevelopmentDataAction.Reset:
